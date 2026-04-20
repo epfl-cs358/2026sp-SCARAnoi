@@ -16,6 +16,12 @@ const lastResponseEl = document.getElementById("lastResponse");
 const connectionStatusEl = document.getElementById("connectionStatus");
 const previewAbsoluteCodeEl = document.getElementById("previewAbsoluteCode");
 const logBox = document.getElementById("logBox");
+const tooltipEl = document.getElementById("commandTooltip");
+const tooltipToggle = document.getElementById("tooltipToggle");
+
+let tooltipsEnabled = true;
+
+let commandDescriptions = {};
 
 function getUiValues() {
   return {
@@ -34,9 +40,114 @@ function clearLog() {
   logBox.textContent = "Ready.";
 }
 
+async function loadCommandDescriptions() {
+  try {
+    const response = await fetch("command-descriptions.json");
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    commandDescriptions = await response.json();
+  } catch (error) {
+    appendLog(`! Failed to load command descriptions: ${error}`);
+    commandDescriptions = {};
+  }
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function getTooltipData(action) {
+  const descriptionEntry = commandDescriptions[action];
+  const actionData = getActionGcode(action, getUiValues());
+
+  if (!descriptionEntry && !actionData) return null;
+
+  return {
+    command: actionData?.gcode || descriptionEntry?.command || "No command available",
+    description: descriptionEntry?.description || "No description available."
+  };
+}
+
+function renderTooltipContent(action) {
+  const data = getTooltipData(action);
+  if (!data) return "";
+
+  return `
+    <div class="tooltip-command">${escapeHtml(data.command)}</div>
+    <div class="tooltip-description">${escapeHtml(data.description)}</div>
+  `;
+}
+
+function showTooltip(action, event) {
+  if (!tooltipsEnabled) return;
+
+  const html = renderTooltipContent(action);
+  if (!html) return;
+
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add("visible");
+  moveTooltip(event);
+}
+
+function setupTooltipToggle() {
+  if (!tooltipToggle) return;
+
+  tooltipsEnabled = tooltipToggle.checked;
+
+  tooltipToggle.addEventListener("change", () => {
+    tooltipsEnabled = tooltipToggle.checked;
+
+    if (!tooltipsEnabled) {
+      hideTooltip();
+    }
+  });
+}
+
+function moveTooltip(event) {
+  const offsetX = 14;
+  const offsetY = 14;
+
+  tooltipEl.style.left = `${event.pageX + offsetX}px`;
+  tooltipEl.style.top = `${event.pageY + offsetY}px`;
+}
+
+function hideTooltip() {
+  tooltipEl.classList.remove("visible");
+}
+
+function setupCommandTooltips() {
+  const buttons = document.querySelectorAll("[data-command]");
+
+  buttons.forEach((button) => {
+    const commandKey = button.dataset.command;
+
+    button.addEventListener("mouseenter", (event) => {
+      showTooltip(commandKey, event);
+    });
+
+    button.addEventListener("mousemove", (event) => {
+      const isVisible = tooltipEl.classList.contains("visible");
+      if (isVisible) {
+        tooltipEl.innerHTML = renderTooltipContent(commandKey);
+        moveTooltip(event);
+      }
+    });
+
+    button.addEventListener("mouseleave", hideTooltip);
+  });
+}
+
 async function sendRawGcode(gcode, label) {
   appendLog(`> Sending:\n${gcode}`);
-  lastCommandEl.textContent = `${label} — ${gcode.replace(/\n/g, " | ")}`;
+  lastCommandEl.textContent = `${label} - ${gcode.replace(/\n/g, " | ")}`;
 
   try {
     const response = await fetch(
@@ -134,5 +245,12 @@ customMsgInput.addEventListener("keydown", (event) => {
   }
 });
 
-updateSpeedDisplay();
-updateAbsolutePreview();
+async function initApp() {
+  await loadCommandDescriptions();
+  setupTooltipToggle();
+  setupCommandTooltips();
+  updateSpeedDisplay();
+  updateAbsolutePreview();
+}
+
+initApp();

@@ -27,7 +27,11 @@ const CONFIG = {
   system: {
     home: "G28",
     getPosition: "M114",
+    checkEndstops: "M119",
+    enableMotors: "M17",
+    disableMotors: "M18",
     stop: "M410",
+    restartAfterStop: "M999",
     emergencyStop: "M112",
     firmwareInfo: "M115"
   }
@@ -36,7 +40,6 @@ const CONFIG = {
 /**
  * F in marlin expects mm/min, but our UI uses mm/s, so we convert here.
  */
-
 function mmPerSecToFeedrate(speedMmPerSec) {
   return Number(speedMmPerSec) * 60;
 }
@@ -50,11 +53,10 @@ function formatNumber(value) {
 }
 
 /**
- * Builds G-code for relative moves. 
- * Uses G91 to switch to relative mode, then G1 with the appropriate axis and feedrate, 
+ * Builds G-code for relative moves.
+ * Uses G91 to switch to relative mode, then G1 with the appropriate axis and feedrate,
  * then G90 to switch back to absolute mode.
  */
-
 function buildRelativeMove(axis, delta, feedrate) {
   return `G91\nG1 ${axis}${formatNumber(delta)} F${feedrate}\nG90`;
 }
@@ -64,7 +66,6 @@ function buildRelativeMove(axis, delta, feedrate) {
  * G90
  * G1 X120 Y80 Z30 F900
  */
-
 function buildAbsoluteMove(coords, feedrate) {
   const parts = [];
 
@@ -139,9 +140,25 @@ function getActionGcode(action, values) {
       label: "Get Position",
       gcode: CONFIG.system.getPosition
     },
+    "check-endstops": {
+      label: "Check Endstops",
+      gcode: CONFIG.system.checkEndstops
+    },
+    "enable-motors": {
+      label: "Enable Motors",
+      gcode: CONFIG.system.enableMotors
+    },
+    "disable-motors": {
+      label: "Disable Motors",
+      gcode: CONFIG.system.disableMotors
+    },
     "stop": {
       label: "Stop",
       gcode: CONFIG.system.stop
+    },
+    "restart-after-stop": {
+      label: "Restart",
+      gcode: CONFIG.system.restartAfterStop
     },
     "emergency-stop": {
       label: "Emergency Stop",

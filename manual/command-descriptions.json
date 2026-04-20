@@ -1,0 +1,78 @@
+{
+  "home": {
+    "command": "G28",
+    "description": "When you first start up your machine it has no idea where the toolhead is positioned, so Marlin needs to use a procedure called “homing” to establish a known position. To do this it moves each axis towards one end of its track until it triggers a switch, commonly called an “endstop.” Marlin knows where the endstops are, so once all the endstops have been triggered the position is known."
+  },
+  "jog-y-positive": {
+    "command": "G91\nG1 Y5 F900\nG90",
+    "description": "Move the robot by one step in the positive Y direction."
+  },
+  "jog-x-negative": {
+    "command": "G91\nG1 X-5 F900\nG90",
+    "description": "Move the robot by one step in the negative X direction."
+  },
+  "jog-x-positive": {
+    "command": "G91\nG1 X5 F900\nG90",
+    "description": "Move the robot by one step in the positive X direction."
+  },
+  "jog-y-negative": {
+    "command": "G91\nG1 Y-5 F900\nG90",
+    "description": "Move the robot by one step in the negative Y direction."
+  },
+  "move-up": {
+    "command": "G91\nG1 Z5 F900\nG90",
+    "description": "Move the robot upward along Z by the selected linear step."
+  },
+  "move-down": {
+    "command": "G91\nG1 Z-5 F900\nG90",
+    "description": "Move the robot downward along Z by the selected linear step."
+  },
+  "wrist-left": {
+    "command": "G91\nG1 E-5 F900\nG90",
+    "description": "Rotate the wrist in the negative direction by the selected wrist step."
+  },
+  "wrist-right": {
+    "command": "G91\nG1 E5 F900\nG90",
+    "description": "Rotate the wrist in the positive direction by the selected wrist step."
+  },
+  "open-gripper": {
+    "command": "M280 P0 S10",
+    "description": "Open the gripper using the configured servo angle."
+  },
+  "close-gripper": {
+    "command": "M280 P0 S90",
+    "description": "Close the gripper using the configured servo angle."
+  },
+  "get-position": {
+    "command": "M114",
+    "description": "Get the “current position” of the active tool. Stepper values are included. Normally M114 reports the “projected position” which is the last position Marlin was instructed to move to."
+  },
+  "check-endstops": {
+    "command": "M119",
+    "description": "Use this command to get the current state of all endstops, useful for setup and troubleshooting. Endstops are reported as either “open” or “TRIGGERED”."
+  },
+  "enable-motors": {
+    "command": "M17",
+    "description": "Enable all the stepper motors."
+  },
+  "disable-motors": {
+    "command": "M18",
+    "description": "Disable the stepper motors on all axes."
+  },
+  "stop": {
+    "command": "M410",
+    "description": "Instantly stop queued motion."
+  },
+  "restart-after-stop": {
+    "command": "M999",
+    "description": "Restart Marlin after a stop condition."
+  },
+  "firmware-info": {
+    "command": "M115",
+    "description": "Request firmware information from Marlin."
+  },
+  "emergency-stop": {
+    "command": "M112",
+    "description": "Immediately shut the machine down."
+  }
+}

@@ -13,6 +13,13 @@
         <div class="card-header">
           <div class="eyebrow">SCARAnoi control</div>
           <h1>Connection Console</h1>
+          <div class="tooltip-toggle-row">
+            <label class="switch">
+              <input type="checkbox" id="tooltipToggle" checked />
+              <span class="slider"></span>
+            </label>
+            <span class="tooltip-toggle-label">Tooltips</span>
+          </div>
         </div>
 
         <div class="card-body">
@@ -60,15 +67,15 @@
 
               <div class="motion-pad compact-pad">
                 <div></div>
-                <button class="btn btn-primary" data-action="jog-y-positive">Y+</button>
+                <button class="btn btn-primary" data-action="jog-y-positive" data-command="jog-y-positive">Y+</button>
                 <div></div>
 
-                <button class="btn btn-secondary" data-action="jog-x-negative">X−</button>
-                <button class="btn btn-secondary" data-action="home">Home</button>
-                <button class="btn btn-secondary" data-action="jog-x-positive">X+</button>
+                <button class="btn btn-secondary" data-action="jog-x-negative" data-command="jog-x-negative">X−</button>
+                <button class="btn btn-secondary" data-action="home" data-command="home">Home</button>
+                <button class="btn btn-secondary" data-action="jog-x-positive" data-command="jog-x-positive">X+</button>
 
                 <div></div>
-                <button class="btn btn-primary" data-action="jog-y-negative">Y−</button>
+                <button class="btn btn-primary" data-action="jog-y-negative" data-command="jog-y-negative">Y−</button>
                 <div></div>
               </div>
             </div>
@@ -77,8 +84,8 @@
               <div class="subgroup-title">Z movement</div>
 
               <div class="panel-grid-2 compact-grid">
-                <button class="btn btn-secondary" data-action="move-up">Move Up</button>
-                <button class="btn btn-secondary" data-action="move-down">Move Down</button>
+                <button class="btn btn-secondary" data-action="move-up" data-command="move-up">Move Up</button>
+                <button class="btn btn-secondary" data-action="move-down" data-command="move-down">Move Down</button>
               </div>
             </div>
 
@@ -86,8 +93,8 @@
               <div class="subgroup-title">Wrist rotation</div>
 
               <div class="panel-grid-2 compact-grid">
-                <button class="btn btn-secondary" data-action="wrist-left">Wrist Left</button>
-                <button class="btn btn-secondary" data-action="wrist-right">Wrist Right</button>
+                <button class="btn btn-secondary" data-action="wrist-left" data-command="wrist-left">Wrist Left</button>
+                <button class="btn btn-secondary" data-action="wrist-right" data-command="wrist-right">Wrist Right</button>
               </div>
             </div>
 
@@ -124,8 +131,8 @@
             <div class="section-title">Gripper</div>
 
             <div class="panel-grid-2 compact-grid">
-              <button class="btn btn-primary" data-action="open-gripper">Open Gripper</button>
-              <button class="btn btn-primary" data-action="close-gripper">Close Gripper</button>
+              <button class="btn btn-primary" data-action="open-gripper" data-command="open-gripper">Open Gripper</button>
+              <button class="btn btn-primary" data-action="close-gripper" data-command="close-gripper">Close Gripper</button>
             </div>
           </div>
 
@@ -133,10 +140,14 @@
             <div class="section-title">System</div>
 
             <div class="panel-grid-2 compact-grid">
-              <button class="btn btn-secondary" data-action="get-position">Get Position</button>
-              <button class="btn btn-secondary" data-action="stop">Stop</button>
-              <button class="btn btn-secondary" data-action="firmware-info">Firmware Info</button>
-              <button class="btn btn-danger system-center" data-action="emergency-stop">Emergency Stop</button>
+              <button class="btn btn-secondary" data-action="get-position" data-command="get-position">Get Position</button>
+              <button class="btn btn-secondary" data-action="check-endstops" data-command="check-endstops">Check Endstops</button>
+              <button class="btn btn-secondary" data-action="enable-motors" data-command="enable-motors">Enable Motors</button>
+              <button class="btn btn-secondary" data-action="disable-motors" data-command="disable-motors">Disable Motors</button>
+              <button class="btn btn-secondary" data-action="stop" data-command="stop">Stop</button>
+              <button class="btn btn-secondary" data-action="restart-after-stop" data-command="restart-after-stop">Restart</button>
+              <button class="btn btn-secondary" data-action="firmware-info" data-command="firmware-info">Firmware Info</button>
+              <button class="btn btn-danger system-center" data-action="emergency-stop" data-command="emergency-stop">Emergency Stop</button>
             </div>
           </div>
 
@@ -209,6 +220,8 @@
       </section>
     </div>
   </main>
+
+  <div id="commandTooltip" class="command-tooltip"></div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
