@@ -14,12 +14,12 @@
           <div class="eyebrow">SCARAnoi control</div>
           <h1>Connection Console</h1>
           <div class="tooltip-toggle-row">
-            <label class="switch">
-              <input type="checkbox" id="tooltipToggle" checked />
-              <span class="slider"></span>
-            </label>
-            <span class="tooltip-toggle-label">Tooltips</span>
-          </div>
+          <label class="switch">
+            <input type="checkbox" id="tooltipToggle" checked />
+            <span class="slider"></span>
+          </label>
+          <span class="tooltip-toggle-label">Tooltip</span>
+  </div>
         </div>
 
         <div class="card-body">
@@ -40,10 +40,6 @@
                 step="1"
                 value="15"
               />
-
-              <div class="hint">
-                Feedrate sent to Marlin is automatically converted to mm/min.
-              </div>
             </div>
 
             <div class="subgroup">
@@ -166,6 +162,41 @@
     <div class="right-column">
       <section class="card">
         <div class="card-header">
+          <div class="eyebrow">Camera</div>
+          <h2>Live feed</h2>
+        </div>
+
+        <div class="card-body">
+          <div class="camera-frame">
+            <img
+              id="cameraFeed"
+              class="camera-feed"
+              src="http://192.168.4.1:81/stream"
+              alt="ESP32-CAM stream"
+            />
+          </div>
+
+          <div class="camera-actions">
+            <a class="btn btn-secondary camera-link" href="http://192.168.4.1:81/capture" target="_blank" rel="noopener noreferrer">
+              Open Still Image
+            </a>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              onclick="document.getElementById('cameraFeed').src='http://192.168.4.1:81/stream?t=' + Date.now();"
+            >
+              Reload Stream
+            </button>
+          </div>
+
+          <div class="hint">
+            The live stream is served by the ESP32-CAM. If the image freezes, use Reload Stream.
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
           <div class="eyebrow">Status</div>
           <h2>Current state</h2>
         </div>
@@ -182,7 +213,7 @@
 
             <div class="status-item">
               <div class="status-label">Current mode</div>
-              <div class="status-value" id="currentMode">Manual control</div>
+              <div class="status-value" id="currentMode">SCARA control</div>
             </div>
 
             <div class="status-item">
