@@ -1,78 +1,78 @@
 {
   "home": {
     "command": "G28",
-    "description": "When you first start up your machine it has no idea where the toolhead is positioned, so Marlin needs to use a procedure called “homing” to establish a known position. To do this it moves each axis towards one end of its track until it triggers a switch, commonly called an “endstop.” Marlin knows where the endstops are, so once all the endstops have been triggered the position is known."
+    "description": "Auto home. Sends the arm to its home position."
   },
   "jog-y-positive": {
     "command": "G91\nG1 Y5 F900\nG90",
-    "description": "Move the robot by one step in the positive Y direction."
+    "description": "Moves the end-effector one selected step in the positive Y direction."
   },
   "jog-x-negative": {
     "command": "G91\nG1 X-5 F900\nG90",
-    "description": "Move the robot by one step in the negative X direction."
+    "description": "Moves the end-effector one selected step in the negative X direction."
   },
   "jog-x-positive": {
     "command": "G91\nG1 X5 F900\nG90",
-    "description": "Move the robot by one step in the positive X direction."
+    "description": "Moves the end-effector one selected step in the positive X direction."
   },
   "jog-y-negative": {
     "command": "G91\nG1 Y-5 F900\nG90",
-    "description": "Move the robot by one step in the negative Y direction."
+    "description": "Moves the end-effector one selected step in the negative Y direction."
   },
   "move-up": {
     "command": "G91\nG1 Z5 F900\nG90",
-    "description": "Move the robot upward along Z by the selected linear step."
+    "description": "Moves the lift upward along Z by the selected linear step."
   },
   "move-down": {
     "command": "G91\nG1 Z-5 F900\nG90",
-    "description": "Move the robot downward along Z by the selected linear step."
+    "description": "Moves the lift downward along Z by the selected linear step."
   },
   "wrist-left": {
     "command": "G91\nG1 E-5 F900\nG90",
-    "description": "Rotate the wrist in the negative direction by the selected wrist step."
+    "description": "Rotates the wrist in the negative E direction by the selected wrist step."
   },
   "wrist-right": {
     "command": "G91\nG1 E5 F900\nG90",
-    "description": "Rotate the wrist in the positive direction by the selected wrist step."
+    "description": "Rotates the wrist in the positive E direction by the selected wrist step."
+  },
+  "direct-stepper": {
+    "command": "G6 A90 B45 C10 F1800",
+    "description": "Direct stepper move. Moves shoulder A, elbow B, or lift C directly."
   },
   "open-gripper": {
     "command": "M280 P0 S10",
-    "description": "Open the gripper using the configured servo angle."
+    "description": "Moves servo P0 to the open gripper angle."
   },
   "close-gripper": {
     "command": "M280 P0 S90",
-    "description": "Close the gripper using the configured servo angle."
+    "description": "Moves servo P0 to the closed gripper angle."
+  },
+  "servo-bounds": {
+    "command": "M281 P0 L0 U180",
+    "description": "Sets the min and max bounds for servo P0."
+  },
+  "detach-servo": {
+    "command": "M282 P0",
+    "description": "Detaches servo P0 by cutting the PWM signal. Useful to avoid idle buzzing or heating."
   },
   "get-position": {
     "command": "M114",
-    "description": "Get the “current position” of the active tool. Stepper values are included. Normally M114 reports the “projected position” which is the last position Marlin was instructed to move to."
+    "description": "Reports the current X, Y, Z, and E coordinates."
   },
   "check-endstops": {
     "command": "M119",
-    "description": "Use this command to get the current state of all endstops, useful for setup and troubleshooting. Endstops are reported as either “open” or “TRIGGERED”."
+    "description": "Reports the current state of the limit switches as open or TRIGGERED."
   },
   "enable-motors": {
     "command": "M17",
-    "description": "Enable all the stepper motors."
+    "description": "Enables the stepper motors and locks them in place."
   },
   "disable-motors": {
     "command": "M18",
-    "description": "Disable the stepper motors on all axes."
-  },
-  "stop": {
-    "command": "M410",
-    "description": "Stop all steppers instantly. Since there will be no deceleration, expect steppers to be out of position after this command."
-  },
-  "restart-after-stop": {
-    "command": "M999",
-    "description": "If a STOP occurs you can use M999 to restart the “stopped” machine after resolving the issue."
-  },
-  "firmware-info": {
-    "command": "M115",
-    "description": "Request firmware information from Marlin."
+    "description": "Disables the stepper motors so the arm can be moved manually."
   },
   "emergency-stop": {
     "command": "M112",
-    "description": "Used for immediate halt, M112 shuts down the machine, turns off all the steppers, and if possible, turns off the power supply. A reset is required to return to operational mode."
+    "description": "Emergency stop. Hard halt that shuts down the board and requires a reset."
   }
 }

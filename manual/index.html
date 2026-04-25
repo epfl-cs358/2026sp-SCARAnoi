@@ -6,250 +6,295 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
   <main class="app">
-    <div class="left-column">
-      <section class="card">
-        <div class="card-header">
-          <div class="eyebrow">SCARAnoi control</div>
-          <h1>Connection Console</h1>
-          <div class="tooltip-toggle-row">
-          <label class="switch">
-            <input type="checkbox" id="tooltipToggle" checked />
-            <span class="slider"></span>
-          </label>
-          <span class="tooltip-toggle-label">Tooltip</span>
-  </div>
-        </div>
+    <header class="top-header">
+      <div class="brand-block">
+        <div class="eyebrow">SCARAnoi control</div>
+      </div>
 
-        <div class="card-body">
-          <div class="section">
-            <div class="section-title">Motion</div>
+      <div class="coord-bar">
+        <div>X <span id="coordX">296.4</span></div>
+        <div>Y <span id="coordY">0.0</span></div>
+        <div>Z <span id="coordZ">0.0</span></div>
+        <div>E <span id="coordE">0.0</span>°</div>
+      </div>
 
-            <div class="range-block">
-              <div class="range-top">
-                <div class="range-label">Motion speed</div>
-                <div class="speed-badge"><span id="speedValue">15</span> mm/s</div>
-              </div>
+      <div class="tooltip-toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="tooltipToggle" checked />
+          <span class="slider"></span>
+        </label>
+        <span class="tooltip-toggle-label">Tooltip</span>
+      </div>
+    </header>
 
-              <input
-                id="speedSlider"
-                type="range"
-                min="10"
-                max="25"
-                step="1"
-                value="15"
-              />
+    <section class="main-grid">
+      <section class="left-panel">
+        <section class="card workspace-card">
+          <div class="card-header compact-header">
+            <div>
+              <div class="eyebrow">Workspace</div>
+              <h2>Top-down arm view</h2>
             </div>
 
-            <div class="subgroup">
-              <div class="subgroup-title">Jog distance</div>
-
-              <div class="field-grid-2">
-                <div class="field-block">
-                  <label class="field-label" for="linearStep">Linear step (mm)</label>
-                  <input id="linearStep" type="number" min="0.1" step="0.1" value="5" />
-                </div>
-
-                <div class="field-block">
-                  <label class="field-label" for="wristStep">Wrist step</label>
-                  <input id="wristStep" type="number" min="0.1" step="0.1" value="5" />
-                </div>
-              </div>
-            </div>
-
-            <div class="subgroup">
-              <div class="subgroup-title">XY jog</div>
-
-              <div class="motion-pad compact-pad">
-                <div></div>
-                <button class="btn btn-primary" data-action="jog-y-positive" data-command="jog-y-positive">Y+</button>
-                <div></div>
-
-                <button class="btn btn-secondary" data-action="jog-x-negative" data-command="jog-x-negative">X−</button>
-                <button class="btn btn-secondary" data-action="home" data-command="home">Home</button>
-                <button class="btn btn-secondary" data-action="jog-x-positive" data-command="jog-x-positive">X+</button>
-
-                <div></div>
-                <button class="btn btn-primary" data-action="jog-y-negative" data-command="jog-y-negative">Y−</button>
-                <div></div>
-              </div>
-            </div>
-
-            <div class="subgroup">
-              <div class="subgroup-title">Z movement</div>
-
-              <div class="panel-grid-2 compact-grid">
-                <button class="btn btn-secondary" data-action="move-up" data-command="move-up">Move Up</button>
-                <button class="btn btn-secondary" data-action="move-down" data-command="move-down">Move Down</button>
-              </div>
-            </div>
-
-            <div class="subgroup">
-              <div class="subgroup-title">Wrist rotation</div>
-
-              <div class="panel-grid-2 compact-grid">
-                <button class="btn btn-secondary" data-action="wrist-left" data-command="wrist-left">Wrist Left</button>
-                <button class="btn btn-secondary" data-action="wrist-right" data-command="wrist-right">Wrist Right</button>
-              </div>
-            </div>
-
-            <div class="subgroup">
-              <div class="subgroup-title">Precise move</div>
-
-              <div class="field-grid">
-                <div class="field-block">
-                  <label class="field-label" for="absX">Target X (mm)</label>
-                  <input id="absX" type="number" step="0.1" placeholder="e.g. 120" />
-                </div>
-
-                <div class="field-block">
-                  <label class="field-label" for="absY">Target Y (mm)</label>
-                  <input id="absY" type="number" step="0.1" placeholder="e.g. 80" />
-                </div>
-
-                <div class="field-block">
-                  <label class="field-label" for="absZ">Target Z (mm)</label>
-                  <input id="absZ" type="number" step="0.1" placeholder="e.g. 30" />
-                </div>
-              </div>
-
-              <div class="panel-grid-2 compact-grid top-gap">
-                <button class="btn btn-primary" id="goToPositionBtn">Go to Position</button>
-                <button class="btn btn-secondary" id="clearAbsoluteBtn">Clear Fields</button>
-              </div>
-
-              <div class="code-chip" id="previewAbsoluteCode">Preview: waiting for coordinates</div>
+            <div class="workspace-legend">
+              <span class="legend-green">■ Reachable</span>
+              <span class="legend-red">■ Forbidden</span>
+              <span class="legend-orange">■ Near limit</span>
+              <span class="legend-arm">■ Arm</span>
             </div>
           </div>
 
-          <div class="section">
-            <div class="section-title">Gripper</div>
+          <div class="card-body">
+            <canvas id="workspaceCanvas" class="workspace-canvas" height="320"></canvas>
+          </div>
+        </section>
 
-            <div class="panel-grid-2 compact-grid">
-              <button class="btn btn-primary" data-action="open-gripper" data-command="open-gripper">Open Gripper</button>
-              <button class="btn btn-primary" data-action="close-gripper" data-command="close-gripper">Close Gripper</button>
+        <section class="card console-card">
+          <div class="card-header compact-header">
+            <div>
+              <div class="eyebrow">G-code console</div>
+              <h2>Commands / feedback</h2>
             </div>
+
+            <button class="btn btn-secondary btn-small" id="clearLogBtn">Clear</button>
           </div>
 
-          <div class="section">
-            <div class="section-title">System</div>
+          <div class="card-body console-body">
+            <div id="logBox" class="log-box">Ready.</div>
 
-            <div class="panel-grid-2 compact-grid">
-              <button class="btn btn-secondary" data-action="get-position" data-command="get-position">Get Position</button>
-              <button class="btn btn-secondary" data-action="check-endstops" data-command="check-endstops">Check Endstops</button>
-              <button class="btn btn-secondary" data-action="enable-motors" data-command="enable-motors">Enable Motors</button>
-              <button class="btn btn-secondary" data-action="disable-motors" data-command="disable-motors">Disable Motors</button>
-              <button class="btn btn-secondary" data-action="stop" data-command="stop">Stop</button>
-              <button class="btn btn-secondary" data-action="restart-after-stop" data-command="restart-after-stop">Restart</button>
-              <button class="btn btn-secondary" data-action="firmware-info" data-command="firmware-info">Firmware Info</button>
-              <button class="btn btn-danger system-center" data-action="emergency-stop" data-command="emergency-stop">Emergency Stop</button>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Custom G-code</div>
-
-            <div class="input-row">
-              <input id="customMsg" type="text" placeholder="Type raw G-code here, for example: G1 X20 Y10 F900" />
+            <div class="console-input-row">
+              <input id="customMsg" type="text" placeholder="Type G-code, e.g. G1 X150 Y100 Z10 E90 F3000" />
               <button class="btn btn-primary" id="sendCustomBtn">Send</button>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="right-column">
-      <section class="card">
-        <div class="card-header">
-          <div class="eyebrow">Camera</div>
-          <h2>Live feed</h2>
-        </div>
-
-        <div class="card-body">
-          <div class="camera-frame">
-            <img
-              id="cameraFeed"
-              class="camera-feed"
-              src="http://192.168.4.1:81/stream"
-              alt="ESP32-CAM stream"
-            />
-          </div>
-
-          <div class="camera-actions">
-            <a class="btn btn-secondary camera-link" href="http://192.168.4.1:81/capture" target="_blank" rel="noopener noreferrer">
-              Open Still Image
-            </a>
-            <button
-              class="btn btn-secondary"
-              type="button"
-              onclick="document.getElementById('cameraFeed').src='http://192.168.4.1:81/stream?t=' + Date.now();"
-            >
-              Reload Stream
-            </button>
-          </div>
-
-          <div class="hint">
-            The live stream is served by the ESP32-CAM. If the image freezes, use Reload Stream.
-          </div>
-        </div>
+        </section>
       </section>
 
-      <section class="card">
-        <div class="card-header">
-          <div class="eyebrow">Status</div>
-          <h2>Current state</h2>
-        </div>
+      <section class="center-panel">
+        <section class="card control-card">
+          <div class="card-header">
+            <div class="eyebrow">Motion</div>
+            <h2>Manual control</h2>
+          </div>
 
-        <div class="card-body">
-          <div class="status-grid">
-            <div class="status-item">
-              <div class="status-label">Connection status</div>
-              <div class="status-value status-inline">
-                <span class="dot"></span>
-                <span id="connectionStatus">Waiting for first request</span>
+          <div class="card-body control-body">
+            <div class="control-row">
+              <div class="control-group xy-group">
+                <div class="mini-title">XY jog</div>
+
+                <div class="motion-pad">
+                  <div></div>
+                  <button class="btn btn-primary" data-action="jog-y-positive" data-command="jog-y-positive">Y+</button>
+                  <div></div>
+
+                  <button class="btn btn-secondary" data-action="jog-x-negative" data-command="jog-x-negative">X−</button>
+                  <button class="btn btn-secondary" data-action="home" data-command="home">Home</button>
+                  <button class="btn btn-secondary" data-action="jog-x-positive" data-command="jog-x-positive">X+</button>
+
+                  <div></div>
+                  <button class="btn btn-primary" data-action="jog-y-negative" data-command="jog-y-negative">Y−</button>
+                  <div></div>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="mini-title">Z / wrist</div>
+
+                <div class="panel-grid-2">
+                  <button class="btn btn-secondary" data-action="move-up" data-command="move-up">Z Up</button>
+                  <button class="btn btn-secondary" data-action="move-down" data-command="move-down">Z Down</button>
+                  <button class="btn btn-secondary" data-action="wrist-left" data-command="wrist-left">Wrist Left</button>
+                  <button class="btn btn-secondary" data-action="wrist-right" data-command="wrist-right">Wrist Right</button>
+                </div>
               </div>
             </div>
 
-            <div class="status-item">
-              <div class="status-label">Current mode</div>
-              <div class="status-value" id="currentMode">SCARA control</div>
-            </div>
+            <div class="control-row settings-row">
+              <div class="field-block">
+                <label class="field-label" for="linearStep">Linear step mm</label>
+                <input id="linearStep" type="number" min="0.1" step="0.1" value="5" />
+              </div>
 
-            <div class="status-item">
-              <div class="status-label">Last command sent</div>
-              <div class="status-value" id="lastCommand">None yet</div>
-            </div>
+              <div class="field-block">
+                <label class="field-label" for="wristStep">Wrist step</label>
+                <input id="wristStep" type="number" min="0.1" step="0.1" value="5" />
+              </div>
 
-            <div class="status-item">
-              <div class="status-label">Last response received</div>
-              <div class="status-value" id="lastResponse">Waiting for response...</div>
-            </div>
+              <div class="range-block">
+                <div class="range-top">
+                  <div class="range-label">Speed</div>
+                  <div class="speed-badge"><span id="speedValue">15</span> mm/s</div>
+                </div>
 
-            <div class="status-item">
-              <div class="status-label">Selected speed</div>
-              <div class="status-value"><span id="statusSpeed">15</span> mm/s</div>
+                <input id="speedSlider" type="range" min="10" max="25" step="1" value="15" />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="card">
-        <div class="card-header">
-          <div class="eyebrow">Logs</div>
-          <h2>Request / response</h2>
-        </div>
+        <section class="middle-actions-grid">
+          <section class="card gripper-card">
+            <div class="card-header">
+              <div class="eyebrow">Gripper</div>
+              <h2>Servo P0</h2>
+            </div>
 
-        <div class="card-body">
-          <div class="toolbar">
-            <div class="toolbar-left">Live log</div>
-            <button class="btn btn-secondary btn-small" id="clearLogBtn">Clear log</button>
+            <div class="card-body">
+              <div class="gripper-grid">
+                <button class="btn btn-primary" data-action="open-gripper" data-command="open-gripper">Open</button>
+                <button class="btn btn-primary" data-action="close-gripper" data-command="close-gripper">Close</button>
+                <button class="btn btn-secondary" data-action="servo-bounds" data-command="servo-bounds">Servo bounds</button>
+                <button class="btn btn-secondary" data-action="detach-servo" data-command="detach-servo">Detach servo</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card hardware-card">
+            <div class="card-header">
+              <div class="eyebrow">Hardware</div>
+              <h2>Motor / safety</h2>
+            </div>
+
+            <div class="card-body">
+              <div class="hardware-grid">
+                <button class="btn btn-secondary" data-action="get-position" data-command="get-position">Get position</button>
+                <button class="btn btn-secondary" data-action="check-endstops" data-command="check-endstops">Endstops</button>
+                <button class="btn btn-secondary" data-action="enable-motors" data-command="enable-motors">Enable motors</button>
+                <button class="btn btn-secondary" data-action="disable-motors" data-command="disable-motors">Disable motors</button>
+                <button class="btn btn-danger" data-action="emergency-stop" data-command="emergency-stop">Emergency stop</button>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="card precise-card">
+          <div class="card-header">
+            <div class="eyebrow">Precise move</div>
+            <h2>Absolute X / Y / Z position</h2>
           </div>
 
-          <div id="logBox" class="log-box">Ready.</div>
-        </div>
+          <div class="card-body">
+            <div class="field-grid">
+              <div class="field-block">
+                <label class="field-label" for="absX">Target X mm</label>
+                <input id="absX" type="number" step="0.1" placeholder="e.g. 120" />
+              </div>
+
+              <div class="field-block">
+                <label class="field-label" for="absY">Target Y mm</label>
+                <input id="absY" type="number" step="0.1" placeholder="e.g. 80" />
+              </div>
+
+              <div class="field-block">
+                <label class="field-label" for="absZ">Target Z mm</label>
+                <input id="absZ" type="number" step="0.1" placeholder="e.g. 30" />
+              </div>
+            </div>
+
+            <div class="precise-actions">
+              <button class="btn btn-primary" id="goToPositionBtn">Go to position</button>
+              <button class="btn btn-secondary" id="setPositionBtn">Set position</button>
+              <button class="btn btn-secondary" id="clearAbsoluteBtn">Clear</button>
+            </div>
+
+            <div class="code-chip" id="previewAbsoluteCode">Preview: waiting for coordinates</div>
+          </div>
+        </section>
       </section>
-    </div>
+
+      <aside class="right-panel">
+        <section class="card camera-card">
+          <div class="card-header compact-header">
+            <div>
+              <div class="eyebrow">Camera</div>
+              <h2>Live feed</h2>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="camera-frame">
+              <img
+                id="cameraFeed"
+                class="camera-feed"
+                src="http://192.168.4.1:81/stream"
+                alt="ESP32-CAM stream"
+              />
+            </div>
+
+            <div class="camera-actions">
+              <a class="btn btn-secondary camera-link" href="http://192.168.4.1:81/capture" target="_blank" rel="noopener noreferrer">
+                Still
+              </a>
+
+              <button
+                class="btn btn-secondary"
+                type="button"
+                onclick="document.getElementById('cameraFeed').src='http://192.168.4.1:81/stream?t=' + Date.now();"
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card state-card">
+          <div class="card-header">
+            <div class="eyebrow">Arm state</div>
+            <h2>Current state</h2>
+          </div>
+
+          <div class="card-body">
+            <div class="status-grid">
+              <div class="status-item wide">
+                <div class="status-label">Connection</div>
+                <div class="status-value status-inline">
+                  <span class="dot"></span>
+                  <span id="connectionStatus">Waiting for first request</span>
+                </div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Workspace</div>
+                <div class="status-value status-ok" id="workspaceStatus">OK</div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Radius</div>
+                <div class="status-value" id="radiusStatus">296.4 mm</div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Shoulder</div>
+                <div class="status-value" id="shoulderStatus">0.0°</div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Elbow</div>
+                <div class="status-value" id="elbowStatus">0.0°</div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Speed</div>
+                <div class="status-value"><span id="statusSpeed">15</span> mm/s</div>
+              </div>
+
+              <div class="status-item wide">
+                <div class="status-label">Last command</div>
+                <div class="status-value" id="lastCommand">None yet</div>
+              </div>
+
+              <div class="status-item wide">
+                <div class="status-label">Last response</div>
+                <div class="status-value" id="lastResponse">Waiting for response...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
   </main>
 
   <div id="commandTooltip" class="command-tooltip"></div>
