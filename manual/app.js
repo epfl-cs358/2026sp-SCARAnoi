@@ -60,6 +60,15 @@ function setSimulatedPosition(x = 0, y = 0, z = 0, e = 0) {
   simulatedPosition = { x, y, z, e };
 }
 
+function markPositionUnknown(reason) {
+  simulatedPosition = null;
+  drawWorkspace();
+
+  if (reason) {
+    appendLog(`! ${reason}`);
+  }
+}
+
 function getUiValues() {
   return {
     xySpeed: Number(xySpeedSlider.value),
@@ -75,23 +84,6 @@ function getUiValues() {
     servoMin: Number(servoMinInput.value),
     servoMax: Number(servoMaxInput.value)
   };
-}
-
-function getPositionSnapshot() {
-  if (!hasKnownPosition()) {
-    return { position: null, positioningMode };
-  }
-
-  return {
-    position: { ...simulatedPosition },
-    positioningMode
-  };
-}
-
-function restorePositionSnapshot(snapshot) {
-  simulatedPosition = snapshot.position ? { ...snapshot.position } : null;
-  positioningMode = snapshot.positioningMode;
-  drawWorkspace();
 }
 
 function appendLog(text) {
@@ -198,13 +190,12 @@ function setupCommandTooltips() {
 }
 
 function responseLooksSuccessful(text) {
-  const lower = text.toLowerCase();
+  const normalized = text.trim().toLowerCase();
 
-  if (lower.includes("error")) return false;
-  if (lower.includes("timeout")) return false;
-  if (lower.includes("no response")) return false;
+  if (normalized.startsWith("error:")) return false;
+  if (normalized.includes("timeout")) return false;
 
-  return lower.includes("ok");
+  return normalized.startsWith("ok");
 }
 
 function parseM114Position(text) {
@@ -276,8 +267,6 @@ async function sendRawGcode(gcode, label, options = {}) {
   appendLog(`> Sending:\n${gcode}`);
   lastCommandEl.textContent = `${label} - ${gcode.replace(/\n/g, " | ")}`;
 
-  const beforeSend = getPositionSnapshot();
-
   if (optimistic) {
     applyGcodeToSimulation(gcode);
   }
@@ -297,8 +286,7 @@ async function sendRawGcode(gcode, label, options = {}) {
     const success = responseLooksSuccessful(text);
 
     if (!success) {
-      restorePositionSnapshot(beforeSend);
-      appendLog("! Command was not confirmed by Marlin. Graph reverted.");
+      markPositionUnknown("Command was not confirmed by Marlin. Position is uncertain. Use M114 to sync.");
       return false;
     }
 
@@ -308,11 +296,10 @@ async function sendRawGcode(gcode, label, options = {}) {
 
     return true;
   } catch (error) {
-    restorePositionSnapshot(beforeSend);
-
     const errorText = `Error: ${error}`;
     appendLog(`! ${errorText}`);
-    appendLog("! Request failed. Graph reverted.");
+
+    markPositionUnknown("Request failed. Position is uncertain. Use M114 to sync.");
 
     lastResponseEl.textContent = errorText;
     connectionStatusEl.textContent = "Disconnected or request failed";
@@ -434,46 +421,8 @@ async function handleCustomSend() {
   const value = customMsgInput.value.trim();
   if (!value) return;
 
-  if (!isAllowedGcode(value)) {
-    appendLog(`! Blocked: this command is not in the approved G-code list.`);
-    return;
-  }
-
   await sendRawGcode(value, "Custom G-code");
   customMsgInput.value = "";
-}
-
-function isAllowedGcode(gcode) {
-  const allowed = [
-    "G0",
-    "G1",
-    "G2",
-    "G3",
-    "G6",
-    "G28",
-    "G90",
-    "G91",
-    "G92",
-    "M17",
-    "M18",
-    "M84",
-    "M112",
-    "M114",
-    "M119",
-    "M280",
-    "M281",
-    "M282"
-  ];
-
-  const lines = gcode
-    .split("\n")
-    .map((line) => line.trim().toUpperCase())
-    .filter((line) => line && !line.startsWith(";"));
-
-  return lines.every((line) => {
-    const command = line.split(/\s+/)[0];
-    return allowed.includes(command);
-  });
 }
 
 function resizeWorkspaceCanvas() {
@@ -581,7 +530,7 @@ function drawArm(ctx, centerX, centerY, scale) {
     ctx.font = "14px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.fillText("Position unknown", centerX, centerY - 8);
-    ctx.fillText("Use G28 + M114 or G92 to sync", centerX, centerY + 14);
+    ctx.fillText("Use M114, G28, or G92 to sync", centerX, centerY + 14);
     ctx.textAlign = "left";
     return;
   }

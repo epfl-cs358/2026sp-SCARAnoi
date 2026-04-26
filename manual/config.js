@@ -4,7 +4,7 @@ const CONFIG = {
   arm: {
     link1: 185.412,
     link2: 111.0,
-    forbiddenRadius: 35
+    forbiddenRadius: 35 // TODO: I saw this in a dream, should replace with actual measure
   },
 
   axes: {
@@ -33,7 +33,7 @@ function unitsPerSecondToFeedrate(unitsPerSecond) {
 }
 
 function formatNumber(value) {
-  return Number(value).toFixed(2).replace(/\.00$/, "");
+  return Number(value).toFixed(2).replace(/\.?0+$/, "");
 }
 
 function buildRelativeMove(axis, delta, feedrate) {
@@ -106,7 +106,7 @@ function getActionGcode(action, values) {
   const wristStep = Number(values.wristStep);
 
   const map = {
-    home: {
+    "home": {
       label: "Home",
       gcode: CONFIG.system.home
     },

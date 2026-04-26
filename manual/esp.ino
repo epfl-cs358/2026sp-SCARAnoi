@@ -8,16 +8,6 @@ const char* password = "12345678";
 WebServer controlServer(80);
 WiFiServer streamServer(81);
 
-/*
-  ESP32-CAM <-> Arduino Mega serial bridge.
-
-  ESP32 TX pin goes to Arduino RX1 pin 19.
-  ESP32 RX pin receives from Arduino TX1 pin 18.
-
-  IMPORTANT:
-  Arduino Mega TX is 5V, ESP32 RX is 3.3V.
-  Use a level shifter or voltage divider on Arduino TX -> ESP32 RX.
-*/
 #define ARDUINO_RX_PIN 13
 #define ARDUINO_TX_PIN 14
 #define ARDUINO_BAUD 115200
@@ -41,6 +31,11 @@ HardwareSerial arduinoSerial(1);
 #define VSYNC_GPIO_NUM    25
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
+struct MarlinResponse {
+  bool ok;
+  bool timeout;
+  String text;
+};
 
 void sendCorsHeaders() {
   controlServer.sendHeader("Access-Control-Allow-Origin", "*");
@@ -59,72 +54,135 @@ void clearArduinoInputBuffer() {
   }
 }
 
-/*
-  Wait for Marlin/Arduino response after sending a command.
+String trimGcodeLine(String line) {
+  line.trim();
 
-  Marlin usually replies with lines like:
-  ok
-  X:0.00 Y:0.00 Z:0.00 E:0.00
-  echo:...
+  int commentIndex = line.indexOf(';');
+  if (commentIndex >= 0) {
+    line = line.substring(0, commentIndex);
+    line.trim();
+  }
+
+  return line;
+}
+
+String getCommandWord(String line) {
+  line.trim();
+
+  int spaceIndex = line.indexOf(' ');
+  if (spaceIndex == -1) {
+    return line;
+  }
+
+  return line.substring(0, spaceIndex);
+}
+unsigned long timeoutForCommand(String line) {
+  String command = getCommandWord(line);
+  command.toUpperCase();
+
+  if (command == "G28" || command == "M400") return 30000;
+  if (command == "G0" || command == "G1" || command == "G2" || command == "G3") {
+    return 15000;
+  }
+  if (command == "M114" || command == "M119") return 3000;
+
+  if (command == "M112") return 1000;
+
+  return 5000;
+}
+
+/*
+  Waits for Marlin/Arduino response after sending ONE command.
+
+  Important:
+  - ok means Marlin accepted/processed the command.
+  - For G1/G0, ok may happen before physical motion is fully finished.
+  - For G28/M400, ok usually comes after the blocking operation finishes.
 */
-String readArduinoResponse(unsigned long timeoutMs) {
-  String response = "";
+MarlinResponse readArduinoResponse(unsigned long timeoutMs) {
+  MarlinResponse result;
+  result.ok = false;
+  result.timeout = false;
+  result.text = "";
+
   unsigned long startTime = millis();
+  String currentLine = "";
 
   while (millis() - startTime < timeoutMs) {
     while (arduinoSerial.available()) {
       char c = arduinoSerial.read();
-      response += c;
 
-      // If Marlin says ok, the command was accepted/processed.
-      if (response.indexOf("ok") >= 0) {
-        delay(20);
+      result.text += c;
 
-        // Read any extra remaining characters.
-        while (arduinoSerial.available()) {
-          response += (char)arduinoSerial.read();
+      if (c == '\n' || c == '\r') {
+        currentLine.trim();
+
+        String lowerLine = currentLine;
+        lowerLine.toLowerCase();
+
+        if (lowerLine.startsWith("ok")) {
+          result.ok = true;
+
+          delay(20);
+          while (arduinoSerial.available()) {
+            result.text += (char)arduinoSerial.read();
+          }
+
+          return result;
         }
 
-        return response;
+        if (lowerLine.startsWith("error") || lowerLine.indexOf("error:") >= 0) {
+          result.ok = false;
+          return result;
+        }
+
+        if (lowerLine.indexOf("busy") >= 0) {
+          startTime = millis();
+        }
+
+        currentLine = "";
+      } else {
+        currentLine += c;
       }
     }
 
-    delay(5);
+    delay(2);
   }
 
-  if (response.length() == 0) {
-    response = "No response from Arduino/Marlin before timeout.";
+  result.timeout = true;
+
+  if (result.text.length() == 0) {
+    result.text = "No response from Arduino/Marlin before timeout.";
   }
 
-  return response;
+  return result;
 }
 
-String sendOneLineToArduino(String line) {
+MarlinResponse sendOneLineToArduino(String line) {
   line.trim();
-
-  if (line.length() == 0) {
-    return "";
-  }
 
   Serial.print("Forwarding to Arduino: ");
   Serial.println(line);
 
   arduinoSerial.println(line);
 
-  String response = readArduinoResponse(1500);
+  MarlinResponse response = readArduinoResponse(timeoutForCommand(line));
 
   Serial.println("Arduino response:");
-  Serial.println(response);
+  Serial.println(response.text);
 
-  return "> " + line + "\n" + response + "\n";
+  return response;
 }
 
-String sendGcodeToArduino(String gcode) {
+String sendGcodeToArduino(String gcode, bool &success, int &httpStatus) {
   clearArduinoInputBuffer();
 
   String totalResponse = "";
+  success = true;
+  httpStatus = 200;
 
   int start = 0;
+  int lineNumber = 1;
 
   while (start < gcode.length()) {
     int newlineIndex = gcode.indexOf('\n', start);
@@ -139,27 +197,56 @@ String sendGcodeToArduino(String gcode) {
       start = newlineIndex + 1;
     }
 
-    line.trim();
+    line = trimGcodeLine(line);
 
-    if (line.length() == 0 || line.startsWith(";")) {
+    if (line.length() == 0) {
+      lineNumber++;
       continue;
     }
 
-    totalResponse += sendOneLineToArduino(line);
+    MarlinResponse response = sendOneLineToArduino(line);
+
+    totalResponse += "line ";
+    totalResponse += String(lineNumber);
+    totalResponse += " > ";
+    totalResponse += line;
+    totalResponse += "\n";
+    totalResponse += response.text;
+    totalResponse += "\n";
+
+    if (response.timeout) {
+      success = false;
+      httpStatus = 504;
+
+      return "error: timeout waiting for Marlin on line " +
+             String(lineNumber) + ": " + line + "\n\n" + totalResponse;
+    }
+
+    if (!response.ok) {
+      success = false;
+      httpStatus = 500;
+
+      return "error: Marlin did not confirm line " +
+             String(lineNumber) + ": " + line + "\n\n" + totalResponse;
+    }
+
+    lineNumber++;
   }
 
   if (totalResponse.length() == 0) {
-    totalResponse = "No valid G-code line received.";
+    success = false;
+    httpStatus = 400;
+    return "error: no valid G-code line received.";
   }
 
-  return totalResponse;
+  return "ok\n" + totalResponse;
 }
 
 void handleSend() {
   sendCorsHeaders();
 
   if (!controlServer.hasArg("msg")) {
-    controlServer.send(400, "text/plain", "Missing msg");
+    controlServer.send(400, "text/plain", "error: missing msg");
     return;
   }
 
@@ -169,9 +256,11 @@ void handleSend() {
   Serial.println("HTTP /send received:");
   Serial.println(msg);
 
-  String arduinoResponse = sendGcodeToArduino(msg);
+  bool success;
+  int httpStatus;
+  String arduinoResponse = sendGcodeToArduino(msg, success, httpStatus);
 
-  controlServer.send(200, "text/plain", arduinoResponse);
+  controlServer.send(httpStatus, "text/plain", arduinoResponse);
 }
 
 void handleCapture() {
@@ -329,7 +418,7 @@ void setup() {
 
   Serial.print("Still image: http://");
   Serial.print(ip);
-  Serial.println(":81/capture");
+  Serial.println(":80/capture");
 
   Serial.print("Stream: http://");
   Serial.print(ip);
