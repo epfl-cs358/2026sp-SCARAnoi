@@ -11,6 +11,7 @@ WiFiServer streamServer(81);
 #define ARDUINO_RX_PIN 13
 #define ARDUINO_TX_PIN 14
 #define ARDUINO_BAUD 115200
+#define MARLIN_TIMEOUT_MS = 30000;
 
 HardwareSerial arduinoSerial(1);
 
@@ -31,6 +32,7 @@ HardwareSerial arduinoSerial(1);
 #define VSYNC_GPIO_NUM    25
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
+
 struct MarlinResponse {
   bool ok;
   bool timeout;
@@ -66,39 +68,7 @@ String trimGcodeLine(String line) {
   return line;
 }
 
-String getCommandWord(String line) {
-  line.trim();
 
-  int spaceIndex = line.indexOf(' ');
-  if (spaceIndex == -1) {
-    return line;
-  }
-
-  return line.substring(0, spaceIndex);
-}
-unsigned long timeoutForCommand(String line) {
-  String command = getCommandWord(line);
-  command.toUpperCase();
-
-  if (command == "G28" || command == "M400") return 30000;
-  if (command == "G0" || command == "G1" || command == "G2" || command == "G3") {
-    return 15000;
-  }
-  if (command == "M114" || command == "M119") return 3000;
-
-  if (command == "M112") return 1000;
-
-  return 5000;
-}
-
-/*
-  Waits for Marlin/Arduino response after sending ONE command.
-
-  Important:
-  - ok means Marlin accepted/processed the command.
-  - For G1/G0, ok may happen before physical motion is fully finished.
-  - For G28/M400, ok usually comes after the blocking operation finishes.
-*/
 MarlinResponse readArduinoResponse(unsigned long timeoutMs) {
   MarlinResponse result;
   result.ok = false;
@@ -166,7 +136,7 @@ MarlinResponse sendOneLineToArduino(String line) {
 
   arduinoSerial.println(line);
 
-  MarlinResponse response = readArduinoResponse(timeoutForCommand(line));
+  MarlinResponse response = readArduinoResponse(MARLIN_TIMEOUT_MS);
 
   Serial.println("Arduino response:");
   Serial.println(response.text);
