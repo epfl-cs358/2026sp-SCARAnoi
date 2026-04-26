@@ -55,6 +55,10 @@ function buildAbsoluteMove(coords, feedrate) {
     parts.push(`${CONFIG.axes.z}${formatNumber(coords.z)}`);
   }
 
+  if (coords.e !== "" && coords.e !== null && coords.e !== undefined) {
+    parts.push(`${CONFIG.axes.wrist}${formatNumber(coords.e)}`);
+  }
+
   if (parts.length === 0) return null;
 
   return `G90\nG1 ${parts.join(" ")} F${feedrate}`;
@@ -73,6 +77,10 @@ function buildSetPosition(coords) {
 
   if (coords.z !== "" && coords.z !== null && coords.z !== undefined) {
     parts.push(`${CONFIG.axes.z}${formatNumber(coords.z)}`);
+  }
+
+  if (coords.e !== "" && coords.e !== null && coords.e !== undefined) {
+    parts.push(`${CONFIG.axes.wrist}${formatNumber(coords.e)}`);
   }
 
   if (parts.length === 0) return null;

@@ -22,6 +22,7 @@ const servoMaxInput = document.getElementById("servoMax");
 const absXInput = document.getElementById("absX");
 const absYInput = document.getElementById("absY");
 const absZInput = document.getElementById("absZ");
+const absEInput = document.getElementById("absE");
 
 const customMsgInput = document.getElementById("customMsg");
 
@@ -346,7 +347,8 @@ function updateAbsolutePreview() {
     {
       x: absXInput.value.trim(),
       y: absYInput.value.trim(),
-      z: absZInput.value.trim()
+      z: absZInput.value.trim(),
+      e: absEInput.value.trim()
     },
     unitsPerSecondToFeedrate(xySpeedSlider.value)
   );
@@ -354,7 +356,8 @@ function updateAbsolutePreview() {
   const setGcode = buildSetPosition({
     x: absXInput.value.trim(),
     y: absYInput.value.trim(),
-    z: absZInput.value.trim()
+    z: absZInput.value.trim(),
+    e: absEInput.value.trim()
   });
 
   if (!moveGcode && !setGcode) {
@@ -371,6 +374,7 @@ function clearAbsoluteFields() {
   absXInput.value = "";
   absYInput.value = "";
   absZInput.value = "";
+  absEInput.value = "";
   updateAbsolutePreview();
 }
 
@@ -398,7 +402,8 @@ async function handleGoToPosition() {
     {
       x: absXInput.value.trim(),
       y: absYInput.value.trim(),
-      z: absZInput.value.trim()
+      z: absZInput.value.trim(),
+      e: absEInput.value.trim()
     },
     unitsPerSecondToFeedrate(xySpeedSlider.value)
   );
@@ -412,7 +417,8 @@ async function handleSetPosition() {
   const gcode = buildSetPosition({
     x: absXInput.value.trim(),
     y: absYInput.value.trim(),
-    z: absZInput.value.trim()
+    z: absZInput.value.trim(),
+    e: absEInput.value.trim()
   });
 
   if (!gcode) return;
@@ -797,6 +803,7 @@ wristSpeedSlider.addEventListener("input", updateSpeedDisplay);
 absXInput.addEventListener("input", updateAbsolutePreview);
 absYInput.addEventListener("input", updateAbsolutePreview);
 absZInput.addEventListener("input", updateAbsolutePreview);
+absEInput.addEventListener("input", updateAbsolutePreview);
 
 [
   servoOpenInput,

@@ -380,6 +380,10 @@ h2 {
   gap: 10px;
 }
 
+.precise-field-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .field-block {
   display: flex;
   flex-direction: column;
@@ -703,7 +707,8 @@ input[type="range"] {
   .main-grid,
   .right-panel,
   .control-row,
-  .motion-settings-grid {
+  .motion-settings-grid,
+  .precise-field-grid {
     grid-template-columns: 1fr;
   }
 
