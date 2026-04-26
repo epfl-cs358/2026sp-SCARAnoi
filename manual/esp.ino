@@ -6,8 +6,23 @@ const char* ssid = "SCARAnoi";
 const char* password = "12345678";
 
 WebServer controlServer(80);
-
 WiFiServer streamServer(81);
+
+/*
+  ESP32-CAM <-> Arduino Mega serial bridge.
+
+  ESP32 TX pin goes to Arduino RX1 pin 19.
+  ESP32 RX pin receives from Arduino TX1 pin 18.
+
+  IMPORTANT:
+  Arduino Mega TX is 5V, ESP32 RX is 3.3V.
+  Use a level shifter or voltage divider on Arduino TX -> ESP32 RX.
+*/
+#define ARDUINO_RX_PIN 13
+#define ARDUINO_TX_PIN 14
+#define ARDUINO_BAUD 115200
+
+HardwareSerial arduinoSerial(1);
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -38,6 +53,108 @@ void handleOptions() {
   controlServer.send(204);
 }
 
+void clearArduinoInputBuffer() {
+  while (arduinoSerial.available()) {
+    arduinoSerial.read();
+  }
+}
+
+/*
+  Wait for Marlin/Arduino response after sending a command.
+
+  Marlin usually replies with lines like:
+  ok
+  X:0.00 Y:0.00 Z:0.00 E:0.00
+  echo:...
+*/
+String readArduinoResponse(unsigned long timeoutMs) {
+  String response = "";
+  unsigned long startTime = millis();
+
+  while (millis() - startTime < timeoutMs) {
+    while (arduinoSerial.available()) {
+      char c = arduinoSerial.read();
+      response += c;
+
+      // If Marlin says ok, the command was accepted/processed.
+      if (response.indexOf("ok") >= 0) {
+        delay(20);
+
+        // Read any extra remaining characters.
+        while (arduinoSerial.available()) {
+          response += (char)arduinoSerial.read();
+        }
+
+        return response;
+      }
+    }
+
+    delay(5);
+  }
+
+  if (response.length() == 0) {
+    response = "No response from Arduino/Marlin before timeout.";
+  }
+
+  return response;
+}
+
+String sendOneLineToArduino(String line) {
+  line.trim();
+
+  if (line.length() == 0) {
+    return "";
+  }
+
+  Serial.print("Forwarding to Arduino: ");
+  Serial.println(line);
+
+  arduinoSerial.println(line);
+
+  String response = readArduinoResponse(1500);
+
+  Serial.println("Arduino response:");
+  Serial.println(response);
+
+  return "> " + line + "\n" + response + "\n";
+}
+
+String sendGcodeToArduino(String gcode) {
+  clearArduinoInputBuffer();
+
+  String totalResponse = "";
+
+  int start = 0;
+
+  while (start < gcode.length()) {
+    int newlineIndex = gcode.indexOf('\n', start);
+
+    String line;
+
+    if (newlineIndex == -1) {
+      line = gcode.substring(start);
+      start = gcode.length();
+    } else {
+      line = gcode.substring(start, newlineIndex);
+      start = newlineIndex + 1;
+    }
+
+    line.trim();
+
+    if (line.length() == 0 || line.startsWith(";")) {
+      continue;
+    }
+
+    totalResponse += sendOneLineToArduino(line);
+  }
+
+  if (totalResponse.length() == 0) {
+    totalResponse = "No valid G-code line received.";
+  }
+
+  return totalResponse;
+}
+
 void handleSend() {
   sendCorsHeaders();
 
@@ -48,16 +165,18 @@ void handleSend() {
 
   String msg = controlServer.arg("msg");
 
-  Serial.print("Received message: ");
+  Serial.println();
+  Serial.println("HTTP /send received:");
   Serial.println(msg);
 
-  controlServer.send(200, "text/plain", "ESP32 received: " + msg);
+  String arduinoResponse = sendGcodeToArduino(msg);
+
+  controlServer.send(200, "text/plain", arduinoResponse);
 }
 
 void handleCapture() {
-  WiFiClient client = controlServer.client();
-
   camera_fb_t *fb = esp_camera_fb_get();
+
   if (!fb) {
     controlServer.send(500, "text/plain", "Camera capture failed");
     return;
@@ -72,7 +191,6 @@ void handleCapture() {
 
   esp_camera_fb_return(fb);
 }
-
 
 void handleStreamClient(WiFiClient client) {
   String request = client.readStringUntil('\r');
@@ -97,6 +215,7 @@ void handleStreamClient(WiFiClient client) {
 
   while (client.connected()) {
     camera_fb_t *fb = esp_camera_fb_get();
+
     if (!fb) {
       Serial.println("Camera capture failed during stream");
       break;
@@ -160,6 +279,7 @@ bool initCamera() {
   }
 
   esp_err_t err = esp_camera_init(&config);
+
   if (err != ESP_OK) {
     Serial.print("Camera init failed with error 0x");
     Serial.println(err, HEX);
@@ -167,6 +287,7 @@ bool initCamera() {
   }
 
   sensor_t *s = esp_camera_sensor_get();
+
   if (s) {
     s->set_brightness(s, 0);
     s->set_contrast(s, 0);
@@ -180,11 +301,16 @@ bool initCamera() {
 void setup() {
   Serial.begin(115200);
   delay(1000);
+
   Serial.println();
   Serial.println("Booting...");
 
+  arduinoSerial.begin(ARDUINO_BAUD, SERIAL_8N1, ARDUINO_RX_PIN, ARDUINO_TX_PIN);
+  Serial.println("Arduino serial bridge started");
+
   if (!initCamera()) {
     Serial.println("Camera setup failed");
+
     while (true) {
       delay(1000);
     }
@@ -196,6 +322,7 @@ void setup() {
   Serial.println("Wi-Fi AP started");
   Serial.print("Control IP: ");
   Serial.println(ip);
+
   Serial.print("Control endpoint: http://");
   Serial.print(ip);
   Serial.println("/send?msg=G28");
@@ -218,11 +345,11 @@ void setup() {
   Serial.println("Servers ready");
 }
 
-
 void loop() {
   controlServer.handleClient();
 
   WiFiClient streamClient = streamServer.available();
+
   if (streamClient) {
     Serial.println("Stream client connected");
     handleStreamClient(streamClient);

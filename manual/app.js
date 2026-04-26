@@ -35,13 +35,15 @@ const elbowStatusEl = document.getElementById("elbowStatus");
 let tooltipsEnabled = true;
 let commandDescriptions = {};
 let positioningMode = "absolute";
+let simulatedPosition = null;
 
-let simulatedPosition = {
-  x: CONFIG.arm.link1 + CONFIG.arm.link2,
-  y: 0,
-  z: 0,
-  e: 0
-};
+function hasKnownPosition() {
+  return simulatedPosition !== null;
+}
+
+function setSimulatedPosition(x = 0, y = 0, z = 0, e = 0) {
+  simulatedPosition = { x, y, z, e };
+}
 
 function getUiValues() {
   return {
@@ -49,6 +51,23 @@ function getUiValues() {
     linearStep: Number(linearStepInput.value),
     wristStep: Number(wristStepInput.value)
   };
+}
+
+function getPositionSnapshot() {
+  if (!hasKnownPosition()) {
+    return { position: null, positioningMode };
+  }
+
+  return {
+    position: { ...simulatedPosition },
+    positioningMode
+  };
+}
+
+function restorePositionSnapshot(snapshot) {
+  simulatedPosition = snapshot.position ? { ...snapshot.position } : null;
+  positioningMode = snapshot.positioningMode;
+  drawWorkspace();
 }
 
 function appendLog(text) {
@@ -63,11 +82,7 @@ function clearLog() {
 async function loadCommandDescriptions() {
   try {
     const response = await fetch("command-descriptions.json");
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     commandDescriptions = await response.json();
   } catch (error) {
     appendLog(`! Failed to load command descriptions: ${error}`);
@@ -124,10 +139,7 @@ function setupTooltipToggle() {
 
   tooltipToggle.addEventListener("change", () => {
     tooltipsEnabled = tooltipToggle.checked;
-
-    if (!tooltipsEnabled) {
-      hideTooltip();
-    }
+    if (!tooltipsEnabled) hideTooltip();
   });
 }
 
@@ -161,11 +173,48 @@ function setupCommandTooltips() {
   });
 }
 
-async function sendRawGcode(gcode, label) {
+function responseLooksSuccessful(text) {
+  const lower = text.toLowerCase();
+
+  if (lower.includes("error")) return false;
+  if (lower.includes("timeout")) return false;
+  if (lower.includes("no response")) return false;
+
+  return lower.includes("ok");
+}
+
+function parseM114Position(text) {
+  const x = text.match(/X:\s*(-?\d+(\.\d+)?)/i);
+  const y = text.match(/Y:\s*(-?\d+(\.\d+)?)/i);
+  const z = text.match(/Z:\s*(-?\d+(\.\d+)?)/i);
+  const e = text.match(/E:\s*(-?\d+(\.\d+)?)/i);
+
+  if (!x && !y && !z && !e) return false;
+
+  if (!hasKnownPosition()) {
+    setSimulatedPosition(0, 0, 0, 0);
+  }
+
+  if (x) simulatedPosition.x = Number(x[1]);
+  if (y) simulatedPosition.y = Number(y[1]);
+  if (z) simulatedPosition.z = Number(z[1]);
+  if (e) simulatedPosition.e = Number(e[1]);
+
+  drawWorkspace();
+  return true;
+}
+
+async function sendRawGcode(gcode, label, options = {}) {
+  const optimistic = options.optimistic ?? true;
+
   appendLog(`> Sending:\n${gcode}`);
   lastCommandEl.textContent = `${label} - ${gcode.replace(/\n/g, " | ")}`;
 
-  applyGcodeToSimulation(gcode);
+  const beforeSend = getPositionSnapshot();
+
+  if (optimistic) {
+    applyGcodeToSimulation(gcode);
+  }
 
   try {
     const response = await fetch(
@@ -173,14 +222,45 @@ async function sendRawGcode(gcode, label) {
     );
 
     const text = await response.text();
+
     appendLog(`< ${text}`);
     lastResponseEl.textContent = text;
     connectionStatusEl.textContent = `Connected to ESP32 at ${CONFIG.espIp}`;
+
+    const gotRealPosition = parseM114Position(text);
+    const success = responseLooksSuccessful(text);
+
+    if (!success) {
+      restorePositionSnapshot(beforeSend);
+      appendLog("! Command was not confirmed by Marlin. Graph reverted.");
+      return false;
+    }
+
+    if (gotRealPosition) {
+      appendLog("; Graph synced from M114 response.");
+    }
+
+    return true;
   } catch (error) {
+    restorePositionSnapshot(beforeSend);
+
     const errorText = `Error: ${error}`;
     appendLog(`! ${errorText}`);
+    appendLog("! Request failed. Graph reverted.");
+
     lastResponseEl.textContent = errorText;
     connectionStatusEl.textContent = "Disconnected or request failed";
+
+    return false;
+  }
+}
+
+async function syncPositionFromMarlin(reason = "Sync position") {
+  appendLog(`; ${reason}: requesting M114`);
+  const success = await sendRawGcode("M114", reason, { optimistic: false });
+
+  if (!success || !hasKnownPosition()) {
+    appendLog("; Position still unknown. Use Home then M114, or Set position with G92.");
   }
 }
 
@@ -227,7 +307,11 @@ async function handleAction(action) {
   const result = getActionGcode(action, getUiValues());
   if (!result) return;
 
-  await sendRawGcode(result.gcode, result.label);
+  const success = await sendRawGcode(result.gcode, result.label);
+
+  if (success && action === "home") {
+    await syncPositionFromMarlin("Home complete");
+  }
 }
 
 async function handleGoToPosition() {
@@ -254,7 +338,11 @@ async function handleSetPosition() {
 
   if (!gcode) return;
 
-  await sendRawGcode(gcode, "Set Position");
+  const success = await sendRawGcode(gcode, "Set Position");
+
+  if (success) {
+    await syncPositionFromMarlin("Position set");
+  }
 }
 
 async function handleCustomSend() {
@@ -403,6 +491,16 @@ function drawWorkspaceZones(ctx, centerX, centerY, scale, maxReach, minReach) {
 }
 
 function drawArm(ctx, centerX, centerY, scale) {
+  if (!hasKnownPosition()) {
+    ctx.fillStyle = "rgba(255, 176, 102, 0.85)";
+    ctx.font = "14px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("Position unknown", centerX, centerY - 8);
+    ctx.fillText("Use G28 + M114 or G92 to sync", centerX, centerY + 14);
+    ctx.textAlign = "left";
+    return;
+  }
+
   const l1 = CONFIG.arm.link1;
   const l2 = CONFIG.arm.link2;
 
@@ -463,6 +561,22 @@ function drawJoint(ctx, x, y, radius, color) {
 }
 
 function updateWorkspaceState() {
+  if (!hasKnownPosition()) {
+    coordXEl.textContent = "--";
+    coordYEl.textContent = "--";
+    coordZEl.textContent = "--";
+    coordEEl.textContent = "--";
+
+    radiusStatusEl.textContent = "--";
+    shoulderStatusEl.textContent = "--";
+    elbowStatusEl.textContent = "--";
+
+    workspaceStatusEl.className = "status-value status-warning";
+    workspaceStatusEl.textContent = "Unknown";
+
+    return;
+  }
+
   const l1 = CONFIG.arm.link1;
   const l2 = CONFIG.arm.link2;
 
@@ -527,26 +641,25 @@ function applyGcodeToSimulation(gcode) {
     }
 
     if (upper.startsWith("G92")) {
-      applyCoordinateValues(line, "absolute");
+      applyCoordinateValues(line, "absolute", true);
       return;
     }
 
     if (upper.match(/^G0\b/) || upper.match(/^G1\b/)) {
-      applyCoordinateValues(line, positioningMode);
+      applyCoordinateValues(line, positioningMode, false);
       return;
     }
 
     if (upper.match(/^G2\b/) || upper.match(/^G3\b/)) {
-      applyCoordinateValues(line, "absolute");
+      applyCoordinateValues(line, "absolute", false);
       return;
     }
 
     if (upper.match(/^G6\b/)) {
-      const c = extractLetterValue(line, "C");
+      if (!hasKnownPosition()) return;
 
-      if (c !== null) {
-        simulatedPosition.z = c;
-      }
+      const c = extractLetterValue(line, "C");
+      if (c !== null) simulatedPosition.z = c;
     }
   });
 
@@ -554,7 +667,16 @@ function applyGcodeToSimulation(gcode) {
   drawWorkspace();
 }
 
-function applyCoordinateValues(line, mode) {
+function applyCoordinateValues(line, mode, canCreatePosition) {
+  if (!hasKnownPosition()) {
+    if (!canCreatePosition) {
+      appendLog("; Position unknown. Command sent, but graph not updated.");
+      return;
+    }
+
+    setSimulatedPosition(0, 0, 0, 0);
+  }
+
   const x = extractLetterValue(line, "X");
   const y = extractLetterValue(line, "Y");
   const z = extractLetterValue(line, "Z");
@@ -579,6 +701,8 @@ function extractLetterValue(line, letter) {
 }
 
 function clampSimulatedPosition() {
+  if (!hasKnownPosition()) return;
+
   const maxReach = CONFIG.arm.link1 + CONFIG.arm.link2;
   const r = Math.sqrt(
     simulatedPosition.x * simulatedPosition.x +
@@ -626,6 +750,8 @@ async function initApp() {
   resizeWorkspaceCanvas();
 
   window.addEventListener("resize", resizeWorkspaceCanvas);
+
+  await syncPositionFromMarlin("Startup sync");
 }
 
 initApp();
