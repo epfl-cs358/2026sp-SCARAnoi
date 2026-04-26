@@ -7,31 +7,14 @@ const CONFIG = {
     forbiddenRadius: 35
   },
 
-  speed: {
-    min: 10,
-    max: 25,
-    default: 15
-  },
-
-  steps: {
-    linearDefault: 5,
-    wristDefault: 5
-  },
-
   axes: {
     x: "X",
     y: "Y",
     z: "Z",
-    wrist: "E",
-    shoulder: "A",
-    elbow: "B",
-    lift: "C"
+    wrist: "E"
   },
 
   gripper: {
-    open: "M280 P0 S10",
-    close: "M280 P0 S90",
-    bounds: "M281 P0 L0 U180",
     detach: "M282 P0"
   },
 
@@ -45,8 +28,8 @@ const CONFIG = {
   }
 };
 
-function mmPerSecToFeedrate(speedMmPerSec) {
-  return Number(speedMmPerSec) * 60;
+function unitsPerSecondToFeedrate(unitsPerSecond) {
+  return Number(unitsPerSecond) * 60;
 }
 
 function formatNumber(value) {
@@ -97,14 +80,21 @@ function buildSetPosition(coords) {
   return `G92 ${parts.join(" ")}`;
 }
 
-function buildDirectStepperMove(values) {
-  const feedrate = mmPerSecToFeedrate(values.speed);
-  return `G6 A0 B0 C0 F${feedrate}`;
+function buildServoMove(angle) {
+  return `M280 P0 S${formatNumber(angle)}`;
+}
+
+function buildServoBounds(minAngle, maxAngle) {
+  return `M281 P0 L${formatNumber(minAngle)} U${formatNumber(maxAngle)}`;
 }
 
 function getActionGcode(action, values) {
-  const feedrate = mmPerSecToFeedrate(values.speed);
-  const linearStep = Number(values.linearStep);
+  const xyFeedrate = unitsPerSecondToFeedrate(values.xySpeed);
+  const zFeedrate = unitsPerSecondToFeedrate(values.zSpeed);
+  const wristFeedrate = unitsPerSecondToFeedrate(values.wristSpeed);
+
+  const xyStep = Number(values.xyStep);
+  const zStep = Number(values.zStep);
   const wristStep = Number(values.wristStep);
 
   const map = {
@@ -114,63 +104,58 @@ function getActionGcode(action, values) {
     },
 
     "move-up": {
-      label: "Move Up",
-      gcode: buildRelativeMove(CONFIG.axes.z, linearStep, feedrate)
+      label: "Z Up",
+      gcode: buildRelativeMove(CONFIG.axes.z, zStep, zFeedrate)
     },
 
     "move-down": {
-      label: "Move Down",
-      gcode: buildRelativeMove(CONFIG.axes.z, -linearStep, feedrate)
+      label: "Z Down",
+      gcode: buildRelativeMove(CONFIG.axes.z, -zStep, zFeedrate)
     },
 
     "jog-x-negative": {
       label: "Jog X -",
-      gcode: buildRelativeMove(CONFIG.axes.x, -linearStep, feedrate)
+      gcode: buildRelativeMove(CONFIG.axes.x, -xyStep, xyFeedrate)
     },
 
     "jog-x-positive": {
       label: "Jog X +",
-      gcode: buildRelativeMove(CONFIG.axes.x, linearStep, feedrate)
+      gcode: buildRelativeMove(CONFIG.axes.x, xyStep, xyFeedrate)
     },
 
     "jog-y-negative": {
       label: "Jog Y -",
-      gcode: buildRelativeMove(CONFIG.axes.y, -linearStep, feedrate)
+      gcode: buildRelativeMove(CONFIG.axes.y, -xyStep, xyFeedrate)
     },
 
     "jog-y-positive": {
       label: "Jog Y +",
-      gcode: buildRelativeMove(CONFIG.axes.y, linearStep, feedrate)
+      gcode: buildRelativeMove(CONFIG.axes.y, xyStep, xyFeedrate)
     },
 
     "wrist-left": {
       label: "Wrist Left",
-      gcode: buildRelativeMove(CONFIG.axes.wrist, -wristStep, feedrate)
+      gcode: buildRelativeMove(CONFIG.axes.wrist, -wristStep, wristFeedrate)
     },
 
     "wrist-right": {
       label: "Wrist Right",
-      gcode: buildRelativeMove(CONFIG.axes.wrist, wristStep, feedrate)
-    },
-
-    "direct-stepper": {
-      label: "Direct Stepper Move",
-      gcode: buildDirectStepperMove(values)
+      gcode: buildRelativeMove(CONFIG.axes.wrist, wristStep, wristFeedrate)
     },
 
     "open-gripper": {
       label: "Open Gripper",
-      gcode: CONFIG.gripper.open
+      gcode: buildServoMove(values.servoOpen)
     },
 
     "close-gripper": {
       label: "Close Gripper",
-      gcode: CONFIG.gripper.close
+      gcode: buildServoMove(values.servoClose)
     },
 
     "servo-bounds": {
       label: "Servo Bounds",
-      gcode: CONFIG.gripper.bounds
+      gcode: buildServoBounds(values.servoMin, values.servoMax)
     },
 
     "detach-servo": {

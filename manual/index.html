@@ -112,24 +112,44 @@
               </div>
             </div>
 
-            <div class="control-row settings-row">
+            <div class="motion-settings-grid">
               <div class="field-block">
-                <label class="field-label" for="linearStep">Linear step mm</label>
-                <input id="linearStep" type="number" min="0.1" step="0.1" value="5" />
+                <label class="field-label" for="xyStep">XY step mm</label>
+                <input id="xyStep" type="number" min="0.1" step="0.1" value="5" />
               </div>
 
               <div class="field-block">
-                <label class="field-label" for="wristStep">Wrist step</label>
+                <label class="field-label" for="zStep">Z step mm</label>
+                <input id="zStep" type="number" min="0.1" step="0.1" value="5" />
+              </div>
+
+              <div class="field-block">
+                <label class="field-label" for="wristStep">Wrist step °</label>
                 <input id="wristStep" type="number" min="0.1" step="0.1" value="5" />
               </div>
 
               <div class="range-block">
                 <div class="range-top">
-                  <div class="range-label">Speed</div>
-                  <div class="speed-badge"><span id="speedValue">15</span> mm/s</div>
+                  <div class="range-label">XY speed</div>
+                  <div class="speed-badge"><span id="xySpeedValue">15</span> mm/s</div>
                 </div>
+                <input id="xySpeedSlider" type="range" min="1" max="50" step="1" value="15" />
+              </div>
 
-                <input id="speedSlider" type="range" min="10" max="25" step="1" value="15" />
+              <div class="range-block">
+                <div class="range-top">
+                  <div class="range-label">Z speed</div>
+                  <div class="speed-badge"><span id="zSpeedValue">10</span> mm/s</div>
+                </div>
+                <input id="zSpeedSlider" type="range" min="1" max="30" step="1" value="10" />
+              </div>
+
+              <div class="range-block">
+                <div class="range-top">
+                  <div class="range-label">Wrist speed</div>
+                  <div class="speed-badge"><span id="wristSpeedValue">10</span> °/s</div>
+                </div>
+                <input id="wristSpeedSlider" type="range" min="1" max="30" step="1" value="10" />
               </div>
             </div>
           </div>
@@ -142,13 +162,51 @@
               <h2>Servo P0</h2>
             </div>
 
-            <div class="card-body">
-              <div class="gripper-grid">
-                <button class="btn btn-primary" data-action="open-gripper" data-command="open-gripper">Open</button>
-                <button class="btn btn-primary" data-action="close-gripper" data-command="close-gripper">Close</button>
-                <button class="btn btn-secondary" data-action="servo-bounds" data-command="servo-bounds">Servo bounds</button>
-                <button class="btn btn-secondary" data-action="detach-servo" data-command="detach-servo">Detach servo</button>
+            <div class="card-body gripper-body">
+              <div class="servo-move-box">
+                <div class="servo-box-title">Servo angles</div>
+
+                <div class="servo-move-grid">
+                  <div class="field-block">
+                    <label class="field-label" for="servoOpen">Open angle</label>
+                    <input id="servoOpen" type="number" min="0" max="180" step="1" value="10" />
+                  </div>
+
+                  <div class="field-block">
+                    <label class="field-label" for="servoClose">Close angle</label>
+                    <input id="servoClose" type="number" min="0" max="180" step="1" value="90" />
+                  </div>
+                </div>
+
+                <div class="servo-action-grid">
+                  <button class="btn btn-primary" data-action="open-gripper" data-command="open-gripper">Open</button>
+                  <button class="btn btn-primary" data-action="close-gripper" data-command="close-gripper">Close</button>
+                </div>
               </div>
+
+              <div class="servo-bounds-box">
+                <div class="servo-box-title">Servo bounds</div>
+
+                <div class="servo-bounds-fields">
+                  <div class="field-block">
+                    <label class="field-label" for="servoMin">Min angle</label>
+                    <input id="servoMin" type="number" min="0" max="180" step="1" value="0" />
+                  </div>
+
+                  <div class="field-block">
+                    <label class="field-label" for="servoMax">Max angle</label>
+                    <input id="servoMax" type="number" min="0" max="180" step="1" value="180" />
+                  </div>
+
+                  <button class="btn btn-secondary apply-bounds-btn" data-action="servo-bounds" data-command="servo-bounds">
+                    Apply bounds
+                  </button>
+                </div>
+              </div>
+
+              <button class="btn btn-secondary detach-servo-btn" data-action="detach-servo" data-command="detach-servo">
+                Detach servo
+              </button>
             </div>
           </section>
 
@@ -277,8 +335,18 @@
               </div>
 
               <div class="status-item">
-                <div class="status-label">Speed</div>
-                <div class="status-value"><span id="statusSpeed">15</span> mm/s</div>
+                <div class="status-label">XY speed</div>
+                <div class="status-value"><span id="xySpeedStatus">15</span> mm/s</div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Z speed</div>
+                <div class="status-value"><span id="zSpeedStatus">10</span> mm/s</div>
+              </div>
+
+              <div class="status-item">
+                <div class="status-label">Wrist speed</div>
+                <div class="status-value"><span id="wristSpeedStatus">10</span> °/s</div>
               </div>
 
               <div class="status-item wide">

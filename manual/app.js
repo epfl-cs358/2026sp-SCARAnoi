@@ -1,9 +1,23 @@
-const speedSlider = document.getElementById("speedSlider");
-const speedValue = document.getElementById("speedValue");
-const statusSpeed = document.getElementById("statusSpeed");
+const xySpeedSlider = document.getElementById("xySpeedSlider");
+const zSpeedSlider = document.getElementById("zSpeedSlider");
+const wristSpeedSlider = document.getElementById("wristSpeedSlider");
 
-const linearStepInput = document.getElementById("linearStep");
+const xySpeedValue = document.getElementById("xySpeedValue");
+const zSpeedValue = document.getElementById("zSpeedValue");
+const wristSpeedValue = document.getElementById("wristSpeedValue");
+
+const xySpeedStatus = document.getElementById("xySpeedStatus");
+const zSpeedStatus = document.getElementById("zSpeedStatus");
+const wristSpeedStatus = document.getElementById("wristSpeedStatus");
+
+const xyStepInput = document.getElementById("xyStep");
+const zStepInput = document.getElementById("zStep");
 const wristStepInput = document.getElementById("wristStep");
+
+const servoOpenInput = document.getElementById("servoOpen");
+const servoCloseInput = document.getElementById("servoClose");
+const servoMinInput = document.getElementById("servoMin");
+const servoMaxInput = document.getElementById("servoMax");
 
 const absXInput = document.getElementById("absX");
 const absYInput = document.getElementById("absY");
@@ -47,9 +61,18 @@ function setSimulatedPosition(x = 0, y = 0, z = 0, e = 0) {
 
 function getUiValues() {
   return {
-    speed: Number(speedSlider.value),
-    linearStep: Number(linearStepInput.value),
-    wristStep: Number(wristStepInput.value)
+    xySpeed: Number(xySpeedSlider.value),
+    zSpeed: Number(zSpeedSlider.value),
+    wristSpeed: Number(wristSpeedSlider.value),
+
+    xyStep: Number(xyStepInput.value),
+    zStep: Number(zStepInput.value),
+    wristStep: Number(wristStepInput.value),
+
+    servoOpen: Number(servoOpenInput.value),
+    servoClose: Number(servoCloseInput.value),
+    servoMin: Number(servoMinInput.value),
+    servoMax: Number(servoMaxInput.value)
   };
 }
 
@@ -204,6 +227,48 @@ function parseM114Position(text) {
   return true;
 }
 
+function readServoAngle(input, label) {
+  const angle = Number(input.value);
+
+  if (Number.isNaN(angle)) {
+    appendLog(`! ${label} must be a valid number.`);
+    return null;
+  }
+
+  if (angle < 0 || angle > 180) {
+    appendLog(`! ${label} must stay between 0 and 180 degrees.`);
+    return null;
+  }
+
+  return angle;
+}
+
+function validateServoMove(action) {
+  if (action === "open-gripper") {
+    return readServoAngle(servoOpenInput, "Open angle") !== null;
+  }
+
+  if (action === "close-gripper") {
+    return readServoAngle(servoCloseInput, "Close angle") !== null;
+  }
+
+  return true;
+}
+
+function validateServoBounds() {
+  const min = readServoAngle(servoMinInput, "Servo min angle");
+  const max = readServoAngle(servoMaxInput, "Servo max angle");
+
+  if (min === null || max === null) return false;
+
+  if (min >= max) {
+    appendLog("! Servo min angle must be smaller than max angle.");
+    return false;
+  }
+
+  return true;
+}
+
 async function sendRawGcode(gcode, label, options = {}) {
   const optimistic = options.optimistic ?? true;
 
@@ -265,8 +330,14 @@ async function syncPositionFromMarlin(reason = "Sync position") {
 }
 
 function updateSpeedDisplay() {
-  speedValue.textContent = speedSlider.value;
-  statusSpeed.textContent = speedSlider.value;
+  xySpeedValue.textContent = xySpeedSlider.value;
+  zSpeedValue.textContent = zSpeedSlider.value;
+  wristSpeedValue.textContent = wristSpeedSlider.value;
+
+  xySpeedStatus.textContent = xySpeedSlider.value;
+  zSpeedStatus.textContent = zSpeedSlider.value;
+  wristSpeedStatus.textContent = wristSpeedSlider.value;
+
   updateAbsolutePreview();
 }
 
@@ -277,7 +348,7 @@ function updateAbsolutePreview() {
       y: absYInput.value.trim(),
       z: absZInput.value.trim()
     },
-    mmPerSecToFeedrate(speedSlider.value)
+    unitsPerSecondToFeedrate(xySpeedSlider.value)
   );
 
   const setGcode = buildSetPosition({
@@ -304,6 +375,14 @@ function clearAbsoluteFields() {
 }
 
 async function handleAction(action) {
+  if (action === "servo-bounds" && !validateServoBounds()) {
+    return;
+  }
+
+  if (!validateServoMove(action)) {
+    return;
+  }
+
   const result = getActionGcode(action, getUiValues());
   if (!result) return;
 
@@ -321,7 +400,7 @@ async function handleGoToPosition() {
       y: absYInput.value.trim(),
       z: absZInput.value.trim()
     },
-    mmPerSecToFeedrate(speedSlider.value)
+    unitsPerSecondToFeedrate(xySpeedSlider.value)
   );
 
   if (!gcode) return;
@@ -654,13 +733,6 @@ function applyGcodeToSimulation(gcode) {
       applyCoordinateValues(line, "absolute", false);
       return;
     }
-
-    if (upper.match(/^G6\b/)) {
-      if (!hasKnownPosition()) return;
-
-      const c = extractLetterValue(line, "C");
-      if (c !== null) simulatedPosition.z = c;
-    }
   });
 
   clampSimulatedPosition();
@@ -718,10 +790,26 @@ function clampSimulatedPosition() {
   }
 }
 
-speedSlider.addEventListener("input", updateSpeedDisplay);
+xySpeedSlider.addEventListener("input", updateSpeedDisplay);
+zSpeedSlider.addEventListener("input", updateSpeedDisplay);
+wristSpeedSlider.addEventListener("input", updateSpeedDisplay);
+
 absXInput.addEventListener("input", updateAbsolutePreview);
 absYInput.addEventListener("input", updateAbsolutePreview);
 absZInput.addEventListener("input", updateAbsolutePreview);
+
+[
+  servoOpenInput,
+  servoCloseInput,
+  servoMinInput,
+  servoMaxInput
+].forEach((input) => {
+  input.addEventListener("input", () => {
+    if (tooltipEl.classList.contains("visible")) {
+      tooltipEl.classList.remove("visible");
+    }
+  });
+});
 
 document.querySelectorAll("[data-action]").forEach((button) => {
   button.addEventListener("click", () => {

@@ -35,21 +35,17 @@
     "command": "G91\nG1 E5 F900\nG90",
     "description": "Rotates the wrist in the positive E direction by the selected wrist step."
   },
-  "direct-stepper": {
-    "command": "G6 A90 B45 C10 F1800",
-    "description": "Direct stepper move. Moves shoulder A, elbow B, or lift C directly."
-  },
   "open-gripper": {
-    "command": "M280 P0 S10",
-    "description": "Moves servo P0 to the open gripper angle."
+    "command": "M280 P0 S[open angle]",
+    "description": "Moves servo P0 to the open angle entered in the gripper panel."
   },
   "close-gripper": {
-    "command": "M280 P0 S90",
-    "description": "Moves servo P0 to the closed gripper angle."
+    "command": "M280 P0 S[close angle]",
+    "description": "Moves servo P0 to the close angle entered in the gripper panel."
   },
   "servo-bounds": {
-    "command": "M281 P0 L0 U180",
-    "description": "Sets the min and max bounds for servo P0."
+    "command": "M281 P0 L[min] U[max]",
+    "description": "Sets the min and max bounds for servo P0. This limits the allowed servo range but does not move the servo by itself."
   },
   "detach-servo": {
     "command": "M282 P0",
