@@ -180,22 +180,12 @@ function setupCommandTooltips() {
 
     button.addEventListener("mousemove", (event) => {
       if (tooltipEl.classList.contains("visible")) {
-        tooltipEl.innerHTML = renderTooltipContent(commandKey);
         moveTooltip(event);
       }
     });
 
     button.addEventListener("mouseleave", hideTooltip);
   });
-}
-
-function responseLooksSuccessful(text) {
-  const normalized = text.trim().toLowerCase();
-
-  if (normalized.startsWith("error:")) return false;
-  if (normalized.includes("timeout")) return false;
-
-  return normalized.startsWith("ok");
 }
 
 function parseM114Position(text) {
@@ -220,7 +210,14 @@ function parseM114Position(text) {
 }
 
 function readServoAngle(input, label) {
-  const angle = Number(input.value);
+  const raw = input.value.trim();
+
+  if (raw === "") {
+    appendLog(`! ${label} cannot be empty.`);
+    return null;
+  }
+
+  const angle = Number(raw);
 
   if (Number.isNaN(angle)) {
     appendLog(`! ${label} must be a valid number.`);
@@ -282,13 +279,12 @@ async function sendRawGcode(gcode, label, options = {}) {
     lastResponseEl.textContent = text;
     connectionStatusEl.textContent = `Connected to ESP32 at ${CONFIG.espIp}`;
 
-    const gotRealPosition = parseM114Position(text);
-    const success = responseLooksSuccessful(text);
-
-    if (!success) {
-      markPositionUnknown("Command was not confirmed by Marlin. Position is uncertain. Use M114 to sync.");
+    if (!response.ok) {
+      markPositionUnknown("ESP32/Marlin reported an error. Position is uncertain. Use M114 to sync.");
       return false;
     }
+
+    const gotRealPosition = parseM114Position(text);
 
     if (gotRealPosition) {
       appendLog("; Graph synced from M114 response.");
@@ -659,7 +655,7 @@ function applyGcodeToSimulation(gcode) {
   const lines = gcode
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith(";"));
+    .filter((line) => line);
 
   lines.forEach((line) => {
     const upper = line.toUpperCase();
@@ -683,14 +679,8 @@ function applyGcodeToSimulation(gcode) {
       applyCoordinateValues(line, positioningMode, false);
       return;
     }
-
-    if (upper.match(/^G2\b/) || upper.match(/^G3\b/)) {
-      applyCoordinateValues(line, "absolute", false);
-      return;
-    }
   });
 
-  clampSimulatedPosition();
   drawWorkspace();
 }
 
@@ -725,24 +715,6 @@ function applyCoordinateValues(line, mode, canCreatePosition) {
 function extractLetterValue(line, letter) {
   const match = line.match(new RegExp(`${letter}(-?\\d+(\\.\\d+)?)`, "i"));
   return match ? Number(match[1]) : null;
-}
-
-function clampSimulatedPosition() {
-  if (!hasKnownPosition()) return;
-
-  const maxReach = CONFIG.arm.link1 + CONFIG.arm.link2;
-  const r = Math.sqrt(
-    simulatedPosition.x * simulatedPosition.x +
-    simulatedPosition.y * simulatedPosition.y
-  );
-
-  if (r > maxReach) {
-    const angle = Math.atan2(simulatedPosition.y, simulatedPosition.x);
-    simulatedPosition.x = maxReach * Math.cos(angle);
-    simulatedPosition.y = maxReach * Math.sin(angle);
-
-    appendLog("! Simulation clamped position to max reach.");
-  }
 }
 
 xySpeedSlider.addEventListener("input", updateSpeedDisplay);

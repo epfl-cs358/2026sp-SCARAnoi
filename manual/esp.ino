@@ -11,7 +11,7 @@ WiFiServer streamServer(81);
 #define ARDUINO_RX_PIN 13
 #define ARDUINO_TX_PIN 14
 #define ARDUINO_BAUD 115200
-#define MARLIN_TIMEOUT_MS = 30000;
+#define MARLIN_TIMEOUT_MS 100000
 
 HardwareSerial arduinoSerial(1);
 
@@ -56,19 +56,6 @@ void clearArduinoInputBuffer() {
   }
 }
 
-String trimGcodeLine(String line) {
-  line.trim();
-
-  int commentIndex = line.indexOf(';');
-  if (commentIndex >= 0) {
-    line = line.substring(0, commentIndex);
-    line.trim();
-  }
-
-  return line;
-}
-
-
 MarlinResponse readArduinoResponse(unsigned long timeoutMs) {
   MarlinResponse result;
   result.ok = false;
@@ -101,8 +88,18 @@ MarlinResponse readArduinoResponse(unsigned long timeoutMs) {
           return result;
         }
 
-        if (lowerLine.startsWith("error") || lowerLine.indexOf("error:") >= 0) {
+        if (lowerLine.startsWith("error") ||
+            lowerLine.indexOf("error:") >= 0 ||
+            lowerLine.indexOf("unknown command") >= 0 ||
+            lowerLine.startsWith("resend") ||
+            lowerLine.startsWith("!!")) {
           result.ok = false;
+
+          delay(20);
+          while (arduinoSerial.available()) {
+            result.text += (char)arduinoSerial.read();
+          }
+          
           return result;
         }
 
@@ -133,11 +130,8 @@ MarlinResponse sendOneLineToArduino(String line) {
 
   Serial.print("Forwarding to Arduino: ");
   Serial.println(line);
-
   arduinoSerial.println(line);
-
   MarlinResponse response = readArduinoResponse(MARLIN_TIMEOUT_MS);
-
   Serial.println("Arduino response:");
   Serial.println(response.text);
 
@@ -167,7 +161,7 @@ String sendGcodeToArduino(String gcode, bool &success, int &httpStatus) {
       start = newlineIndex + 1;
     }
 
-    line = trimGcodeLine(line);
+    line.trim();
 
     if (line.length() == 0) {
       lineNumber++;
