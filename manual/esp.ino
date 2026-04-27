@@ -11,7 +11,7 @@ WiFiServer streamServer(81);
 #define ARDUINO_RX_PIN 13
 #define ARDUINO_TX_PIN 14
 #define ARDUINO_BAUD 250000
-#define MARLIN_TIMEOUT_MS 100000
+#define SERIAL_READ_WINDOW_MS 3000
 
 HardwareSerial arduinoSerial(1);
 
@@ -33,12 +33,6 @@ HardwareSerial arduinoSerial(1);
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-struct MarlinResponse {
-  bool ok;
-  bool timeout;
-  String text;
-};
-
 void sendCorsHeaders() {
   controlServer.sendHeader("Access-Control-Allow-Origin", "*");
   controlServer.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -50,107 +44,32 @@ void handleOptions() {
   controlServer.send(204);
 }
 
-void clearArduinoInputBuffer() {
-  while (arduinoSerial.available()) {
-    arduinoSerial.read();
-  }
-}
+String readArduinoForAWhile(unsigned long durationMs) {
+  String response = "";
+  unsigned long start = millis();
 
-MarlinResponse readArduinoResponse(unsigned long timeoutMs) {
-  MarlinResponse result;
-  result.ok = false;
-  result.timeout = false;
-  result.text = "";
-
-  unsigned long startTime = millis();
-  String currentLine = "";
-
-  while (millis() - startTime < timeoutMs) {
+  while (millis() - start < durationMs) {
     while (arduinoSerial.available()) {
       char c = arduinoSerial.read();
-
-      result.text += c;
-
-      if (c == '\n' || c == '\r') {
-        currentLine.trim();
-
-        String lowerLine = currentLine;
-        lowerLine.toLowerCase();
-
-        if (lowerLine.startsWith("ok")) {
-          result.ok = true;
-
-          delay(20);
-          while (arduinoSerial.available()) {
-            result.text += (char)arduinoSerial.read();
-          }
-
-          return result;
-        }
-
-        if (lowerLine.startsWith("error") ||
-            lowerLine.indexOf("error:") >= 0 ||
-            lowerLine.indexOf("unknown command") >= 0 ||
-            lowerLine.startsWith("resend") ||
-            lowerLine.startsWith("!!")) {
-          result.ok = false;
-
-          delay(20);
-          while (arduinoSerial.available()) {
-            result.text += (char)arduinoSerial.read();
-          }
-          
-          return result;
-        }
-
-        if (lowerLine.indexOf("busy") >= 0) {
-          startTime = millis();
-        }
-
-        currentLine = "";
-      } else {
-        currentLine += c;
-      }
+      response += c;
+      Serial.write(c);
     }
 
     delay(2);
   }
 
-  result.timeout = true;
-
-  if (result.text.length() == 0) {
-    result.text = "No response from Arduino/Marlin before timeout.";
+  if (response.length() == 0) {
+    response = "(no data received from Arduino)";
   }
-
-  return result;
-}
-
-MarlinResponse sendOneLineToArduino(String line) {
-  line.trim();
-
-  Serial.print("Forwarding to Arduino: ");
-  Serial.println(line);
-  arduinoSerial.println(line);
-  MarlinResponse response = readArduinoResponse(MARLIN_TIMEOUT_MS);
-  Serial.println("Arduino response:");
-  Serial.println(response.text);
 
   return response;
 }
 
-String sendGcodeToArduino(String gcode, bool &success, int &httpStatus) {
-  clearArduinoInputBuffer();
-
-  String totalResponse = "";
-  success = true;
-  httpStatus = 200;
-
+void sendGcodeLinesToArduino(String gcode) {
   int start = 0;
-  int lineNumber = 1;
 
   while (start < gcode.length()) {
     int newlineIndex = gcode.indexOf('\n', start);
-
     String line;
 
     if (newlineIndex == -1) {
@@ -164,67 +83,39 @@ String sendGcodeToArduino(String gcode, bool &success, int &httpStatus) {
     line.trim();
 
     if (line.length() == 0) {
-      lineNumber++;
       continue;
     }
 
-    MarlinResponse response = sendOneLineToArduino(line);
+    Serial.print("Sending to Arduino: ");
+    Serial.println(line);
 
-    totalResponse += "line ";
-    totalResponse += String(lineNumber);
-    totalResponse += " > ";
-    totalResponse += line;
-    totalResponse += "\n";
-    totalResponse += response.text;
-    totalResponse += "\n";
-
-    if (response.timeout) {
-      success = false;
-      httpStatus = 504;
-
-      return "error: timeout waiting for Marlin on line " +
-             String(lineNumber) + ": " + line + "\n\n" + totalResponse;
-    }
-
-    if (!response.ok) {
-      success = false;
-      httpStatus = 500;
-
-      return "error: Marlin did not confirm line " +
-             String(lineNumber) + ": " + line + "\n\n" + totalResponse;
-    }
-
-    lineNumber++;
+    arduinoSerial.println(line);
   }
-
-  if (totalResponse.length() == 0) {
-    success = false;
-    httpStatus = 400;
-    return "error: no valid G-code line received.";
-  }
-
-  return "ok\n" + totalResponse;
 }
 
 void handleSend() {
   sendCorsHeaders();
 
   if (!controlServer.hasArg("msg")) {
-    controlServer.send(400, "text/plain", "error: missing msg");
+    controlServer.send(400, "text/plain", "missing msg");
     return;
   }
 
   String msg = controlServer.arg("msg");
+  msg.trim();
 
   Serial.println();
-  Serial.println("HTTP /send received:");
+  Serial.println("===== HTTP /send =====");
   Serial.println(msg);
 
-  bool success;
-  int httpStatus;
-  String arduinoResponse = sendGcodeToArduino(msg, success, httpStatus);
+  sendGcodeLinesToArduino(msg);
 
-  controlServer.send(httpStatus, "text/plain", arduinoResponse);
+  String response = readArduinoForAWhile(SERIAL_READ_WINDOW_MS);
+
+  Serial.println();
+  Serial.println("===== END RESPONSE =====");
+
+  controlServer.send(200, "text/plain", response);
 }
 
 void handleCapture() {
@@ -298,8 +189,10 @@ void handleStreamClient(WiFiClient client) {
 
 bool initCamera() {
   camera_config_t config;
+
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
+
   config.pin_d0 = Y2_GPIO_NUM;
   config.pin_d1 = Y3_GPIO_NUM;
   config.pin_d2 = Y4_GPIO_NUM;
@@ -308,6 +201,7 @@ bool initCamera() {
   config.pin_d5 = Y7_GPIO_NUM;
   config.pin_d6 = Y8_GPIO_NUM;
   config.pin_d7 = Y9_GPIO_NUM;
+
   config.pin_xclk = XCLK_GPIO_NUM;
   config.pin_pclk = PCLK_GPIO_NUM;
   config.pin_vsync = VSYNC_GPIO_NUM;
@@ -316,6 +210,7 @@ bool initCamera() {
   config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
+
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
@@ -378,11 +273,11 @@ void setup() {
 
   Serial.print("Control endpoint: http://");
   Serial.print(ip);
-  Serial.println("/send?msg=G28");
+  Serial.println("/send?msg=M114");
 
   Serial.print("Still image: http://");
   Serial.print(ip);
-  Serial.println(":80/capture");
+  Serial.println("/capture");
 
   Serial.print("Stream: http://");
   Serial.print(ip);
@@ -391,8 +286,8 @@ void setup() {
   controlServer.on("/send", HTTP_GET, handleSend);
   controlServer.on("/send", HTTP_OPTIONS, handleOptions);
   controlServer.on("/capture", HTTP_GET, handleCapture);
-  controlServer.begin();
 
+  controlServer.begin();
   streamServer.begin();
 
   Serial.println("Servers ready");

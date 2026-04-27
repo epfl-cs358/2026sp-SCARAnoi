@@ -60,15 +60,6 @@ function setSimulatedPosition(x = 0, y = 0, z = 0, e = 0) {
   simulatedPosition = { x, y, z, e };
 }
 
-function markPositionUnknown(reason) {
-  simulatedPosition = null;
-  drawWorkspace();
-
-  if (reason) {
-    appendLog(`! ${reason}`);
-  }
-}
-
 function getUiValues() {
   return {
     xySpeed: Number(xySpeedSlider.value),
@@ -258,15 +249,11 @@ function validateServoBounds() {
   return true;
 }
 
-async function sendRawGcode(gcode, label, options = {}) {
-  const optimistic = options.optimistic ?? true;
-
+async function sendRawGcode(gcode, label) {
   appendLog(`> Sending:\n${gcode}`);
   lastCommandEl.textContent = `${label} - ${gcode.replace(/\n/g, " | ")}`;
 
-  if (optimistic) {
-    applyGcodeToSimulation(gcode);
-  }
+  applyGcodeToSimulation(gcode);
 
   try {
     const response = await fetch(
@@ -275,41 +262,23 @@ async function sendRawGcode(gcode, label, options = {}) {
 
     const text = await response.text();
 
-    appendLog(`< ${text}`);
+    appendLog(`< Arduino raw response:\n${text}`);
     lastResponseEl.textContent = text;
     connectionStatusEl.textContent = `Connected to ESP32 at ${CONFIG.espIp}`;
 
-    if (!response.ok) {
-      markPositionUnknown("ESP32/Marlin reported an error. Position is uncertain. Use M114 to sync.");
-      return false;
-    }
-
-    const gotRealPosition = parseM114Position(text);
-
-    if (gotRealPosition) {
+    if (parseM114Position(text)) {
       appendLog("; Graph synced from M114 response.");
     }
 
     return true;
   } catch (error) {
     const errorText = `Error: ${error}`;
+
     appendLog(`! ${errorText}`);
-
-    markPositionUnknown("Request failed. Position is uncertain. Use M114 to sync.");
-
     lastResponseEl.textContent = errorText;
     connectionStatusEl.textContent = "Disconnected or request failed";
 
     return false;
-  }
-}
-
-async function syncPositionFromMarlin(reason = "Sync position") {
-  appendLog(`; ${reason}: requesting M114`);
-  const success = await sendRawGcode("M114", reason, { optimistic: false });
-
-  if (!success || !hasKnownPosition()) {
-    appendLog("; Position still unknown. Use Home then M114, or Set position with G92.");
   }
 }
 
@@ -362,22 +331,13 @@ function clearAbsoluteFields() {
 }
 
 async function handleAction(action) {
-  if (action === "servo-bounds" && !validateServoBounds()) {
-    return;
-  }
-
-  if (!validateServoMove(action)) {
-    return;
-  }
+  if (action === "servo-bounds" && !validateServoBounds()) return;
+  if (!validateServoMove(action)) return;
 
   const result = getActionGcode(action, getUiValues());
   if (!result) return;
 
-  const success = await sendRawGcode(result.gcode, result.label);
-
-  if (success && action === "home") {
-    await syncPositionFromMarlin("Home complete");
-  }
+  await sendRawGcode(result.gcode, result.label);
 }
 
 async function handleGoToPosition() {
@@ -406,11 +366,7 @@ async function handleSetPosition() {
 
   if (!gcode) return;
 
-  const success = await sendRawGcode(gcode, "Set Position");
-
-  if (success) {
-    await syncPositionFromMarlin("Position set");
-  }
+  await sendRawGcode(gcode, "Set Position");
 }
 
 async function handleCustomSend() {
@@ -539,9 +495,7 @@ function drawArm(ctx, centerX, centerY, scale) {
 
   const distanceSquared = x * x + y * y;
 
-  let cosElbow =
-    (distanceSquared - l1 * l1 - l2 * l2) / (2 * l1 * l2);
-
+  let cosElbow = (distanceSquared - l1 * l1 - l2 * l2) / (2 * l1 * l2);
   cosElbow = Math.max(-1, Math.min(1, cosElbow));
 
   const elbowAngle = Math.acos(cosElbow);
@@ -603,7 +557,6 @@ function updateWorkspaceState() {
 
     workspaceStatusEl.className = "status-value status-warning";
     workspaceStatusEl.textContent = "Unknown";
-
     return;
   }
 
@@ -617,9 +570,7 @@ function updateWorkspaceState() {
   const maxReach = l1 + l2;
   const minReach = Math.abs(l1 - l2);
 
-  let cosElbow =
-    (x * x + y * y - l1 * l1 - l2 * l2) / (2 * l1 * l2);
-
+  let cosElbow = (x * x + y * y - l1 * l1 - l2 * l2) / (2 * l1 * l2);
   cosElbow = Math.max(-1, Math.min(1, cosElbow));
 
   const elbowAngle = Math.acos(cosElbow) * 180 / Math.PI;
@@ -677,7 +628,6 @@ function applyGcodeToSimulation(gcode) {
 
     if (upper.match(/^G0\b/) || upper.match(/^G1\b/)) {
       applyCoordinateValues(line, positioningMode, false);
-      return;
     }
   });
 
@@ -759,15 +709,15 @@ customMsgInput.addEventListener("keydown", (event) => {
 
 async function initApp() {
   await loadCommandDescriptions();
+
   setupTooltipToggle();
   setupCommandTooltips();
+
   updateSpeedDisplay();
   updateAbsolutePreview();
   resizeWorkspaceCanvas();
 
   window.addEventListener("resize", resizeWorkspaceCanvas);
-
-  // await syncPositionFromMarlin("Startup sync");
 }
 
 initApp();
