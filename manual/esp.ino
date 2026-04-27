@@ -8,8 +8,8 @@ const char* password = "12345678";
 WebServer controlServer(80);
 WiFiServer streamServer(81);
 
-#define ARDUINO_RX_PIN 13
-#define ARDUINO_TX_PIN 14
+#define ARDUINO_RX_PIN 13 // Connect to Arduino TX
+#define ARDUINO_TX_PIN 14 // Connect to Arduino RX
 #define ARDUINO_BAUD 250000
 #define SERIAL_READ_WINDOW_MS 3000
 
@@ -187,6 +187,19 @@ void handleStreamClient(WiFiClient client) {
   Serial.println("Stream client disconnected");
 }
 
+void streamTask(void *parameter) {
+  while (true) {
+    WiFiClient streamClient = streamServer.available();
+
+    if (streamClient) {
+      Serial.println("Stream client connected");
+      handleStreamClient(streamClient);
+    }
+
+    delay(2);
+  }
+}
+
 bool initCamera() {
   camera_config_t config;
 
@@ -290,16 +303,20 @@ void setup() {
   controlServer.begin();
   streamServer.begin();
 
+  xTaskCreatePinnedToCore(
+    streamTask,
+    "Stream Task",
+    8192,
+    NULL,
+    1,
+    NULL,
+    0
+  );
+
   Serial.println("Servers ready");
 }
 
 void loop() {
   controlServer.handleClient();
-
-  WiFiClient streamClient = streamServer.available();
-
-  if (streamClient) {
-    Serial.println("Stream client connected");
-    handleStreamClient(streamClient);
-  }
+  delay(2);
 }
