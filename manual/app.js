@@ -767,7 +767,7 @@ async function initApp() {
 
   window.addEventListener("resize", resizeWorkspaceCanvas);
 
-  await syncPositionFromMarlin("Startup sync");
+  // await syncPositionFromMarlin("Startup sync");
 }
 
 initApp();

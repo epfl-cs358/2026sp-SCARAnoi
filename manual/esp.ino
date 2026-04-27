@@ -10,7 +10,7 @@ WiFiServer streamServer(81);
 
 #define ARDUINO_RX_PIN 13
 #define ARDUINO_TX_PIN 14
-#define ARDUINO_BAUD 115200
+#define ARDUINO_BAUD 250000
 #define MARLIN_TIMEOUT_MS 100000
 
 HardwareSerial arduinoSerial(1);
