@@ -11,7 +11,8 @@ WiFiServer streamServer(81);
 #define ARDUINO_RX_PIN 13 // Connect to Arduino TX
 #define ARDUINO_TX_PIN 14 // Connect to Arduino RX
 #define ARDUINO_BAUD 250000
-#define SERIAL_READ_WINDOW_MS 3000
+#define SHORT_SERIAL_READ_WINDOW_MS 200
+#define LONG_SERIAL_READ_WINDOW_MS 3000
 
 HardwareSerial arduinoSerial(1);
 
@@ -110,7 +111,13 @@ void handleSend() {
 
   sendGcodeLinesToArduino(msg);
 
-  String response = readArduinoForAWhile(SERIAL_READ_WINDOW_MS);
+  unsigned long readWindow = SHORT_SERIAL_READ_WINDOW_MS;
+
+  if (msg.indexOf("M114") >= 0 || msg.indexOf("M119") >= 0 || msg.indexOf("G28") >= 0) {
+    readWindow = LONG_SERIAL_READ_WINDOW_MS;
+  }
+
+String response = readArduinoForAWhile(readWindow);
 
   Serial.println();
   Serial.println("===== END RESPONSE =====");
