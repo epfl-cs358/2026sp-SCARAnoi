@@ -109,6 +109,10 @@ void handleSend() {
   Serial.println("===== HTTP /send =====");
   Serial.println(msg);
 
+  while (arduinoSerial.available()) {
+    arduinoSerial.read();
+  }
+
   sendGcodeLinesToArduino(msg);
 
   unsigned long readWindow = SHORT_SERIAL_READ_WINDOW_MS;
