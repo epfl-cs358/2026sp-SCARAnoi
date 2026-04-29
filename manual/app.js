@@ -60,6 +60,77 @@ function setSimulatedPosition(x = 0, y = 0, z = 0, e = 0) {
   simulatedPosition = { x, y, z, e };
 }
 
+function getWorkspaceLimits() {
+  const l1 = CONFIG.arm.link1;
+  const l2 = CONFIG.arm.link2;
+
+  return {
+    maxReach: l1 + l2,
+    minReach: Math.max(Math.abs(l1 - l2), CONFIG.arm.forbiddenRadius)
+  };
+}
+
+function clampXYToWorkspace(x, y) {
+  const limits = getWorkspaceLimits();
+  const radius = Math.sqrt(x * x + y * y);
+
+  if (radius === 0) {
+    return {
+      x: limits.minReach,
+      y: 0,
+      clamped: true
+    };
+  }
+
+  let clampedRadius = radius;
+  let clamped = false;
+
+  if (radius > limits.maxReach) {
+    clampedRadius = limits.maxReach;
+    clamped = true;
+  }
+
+  if (radius < limits.minReach) {
+    clampedRadius = limits.minReach;
+    clamped = true;
+  }
+
+  return {
+    x: x * clampedRadius / radius,
+    y: y * clampedRadius / radius,
+    clamped
+  };
+}
+
+function isXYOutsideWorkspace(x, y) {
+  return clampXYToWorkspace(x, y).clamped;
+}
+
+function getTargetXYFromInputs() {
+  const xRaw = absXInput.value.trim();
+  const yRaw = absYInput.value.trim();
+
+  if (xRaw === "" && yRaw === "") {
+    return null;
+  }
+
+  const currentX = hasKnownPosition() ? simulatedPosition.x : 0;
+  const currentY = hasKnownPosition() ? simulatedPosition.y : 0;
+
+  const targetX = xRaw !== "" ? Number(xRaw) : currentX;
+  const targetY = yRaw !== "" ? Number(yRaw) : currentY;
+
+  if (Number.isNaN(targetX) || Number.isNaN(targetY)) {
+    appendLog("! X and Y must be valid numbers.");
+    return null;
+  }
+
+  return {
+    x: targetX,
+    y: targetY
+  };
+}
+
 function getUiValues() {
   return {
     xySpeed: Number(xySpeedSlider.value),
@@ -330,6 +401,50 @@ function clearAbsoluteFields() {
   updateAbsolutePreview();
 }
 
+function getClampedJogGcode(action) {
+  if (!hasKnownPosition()) {
+    return null;
+  }
+
+  const values = getUiValues();
+  const xyFeedrate = unitsPerSecondToFeedrate(values.xySpeed);
+
+  let nextX = simulatedPosition.x;
+  let nextY = simulatedPosition.y;
+
+  if (action === "jog-x-negative") {
+    nextX -= values.xyStep;
+  } else if (action === "jog-x-positive") {
+    nextX += values.xyStep;
+  } else if (action === "jog-y-negative") {
+    nextY -= values.xyStep;
+  } else if (action === "jog-y-positive") {
+    nextY += values.xyStep;
+  } else {
+    return null;
+  }
+
+  const clamped = clampXYToWorkspace(nextX, nextY);
+
+  if (!clamped.clamped) {
+    return null;
+  }
+
+  appendLog(
+    `! Jog target outside workspace. Clamped to X${clamped.x.toFixed(2)} Y${clamped.y.toFixed(2)}.`
+  );
+
+  return buildAbsoluteMove(
+    {
+      x: clamped.x,
+      y: clamped.y,
+      z: "",
+      e: ""
+    },
+    xyFeedrate
+  );
+}
+
 async function handleAction(action) {
   if (action === "servo-bounds" && !validateServoBounds()) return;
   if (!validateServoMove(action)) return;
@@ -337,10 +452,26 @@ async function handleAction(action) {
   const result = getActionGcode(action, getUiValues());
   if (!result) return;
 
-  await sendRawGcode(result.gcode, result.label);
+  const clampedJogGcode = getClampedJogGcode(action);
+  const gcodeToSend = clampedJogGcode || result.gcode;
+
+  await sendRawGcode(gcodeToSend, result.label);
+
+  if (action === "home") {
+    await sendRawGcode(CONFIG.system.getPosition, "Get Position after Home");
+  }
 }
 
 async function handleGoToPosition() {
+  const target = getTargetXYFromInputs();
+
+  if (target && isXYOutsideWorkspace(target.x, target.y)) {
+    appendLog(
+      `! Target outside workspace. Nothing was sent. X${target.x.toFixed(2)} Y${target.y.toFixed(2)} is out of bounds.`
+    );
+    return;
+  }
+
   const gcode = buildAbsoluteMove(
     {
       x: absXInput.value.trim(),
@@ -357,6 +488,15 @@ async function handleGoToPosition() {
 }
 
 async function handleSetPosition() {
+  const target = getTargetXYFromInputs();
+
+  if (target && isXYOutsideWorkspace(target.x, target.y)) {
+    appendLog(
+      `! Set position outside workspace. Nothing was sent. X${target.x.toFixed(2)} Y${target.y.toFixed(2)} is out of bounds.`
+    );
+    return;
+  }
+
   const gcode = buildSetPosition({
     x: absXInput.value.trim(),
     y: absYInput.value.trim(),
@@ -568,7 +708,7 @@ function updateWorkspaceState() {
 
   const r = Math.sqrt(x * x + y * y);
   const maxReach = l1 + l2;
-  const minReach = Math.abs(l1 - l2);
+  const minReach = Math.max(Math.abs(l1 - l2), CONFIG.arm.forbiddenRadius);
 
   let cosElbow = (x * x + y * y - l1 * l1 - l2 * l2) / (2 * l1 * l2);
   cosElbow = Math.max(-1, Math.min(1, cosElbow));
@@ -590,7 +730,7 @@ function updateWorkspaceState() {
   if (r > maxReach) {
     workspaceStatusEl.textContent = "Out of reach";
     workspaceStatusEl.classList.add("status-danger");
-  } else if (r < minReach || r < CONFIG.arm.forbiddenRadius) {
+  } else if (r < minReach) {
     workspaceStatusEl.textContent = "Forbidden zone";
     workspaceStatusEl.classList.add("status-danger");
   } else if (r > maxReach * 0.9) {
