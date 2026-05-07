@@ -102,12 +102,25 @@ static float E_STEPS_PER_DEG        = 25.18;
 // Conservative defaults. Increase only after testing.
 static float MAX_SHOULDER_DEG_S = 60.0f;
 static float MAX_ELBOW_DEG_S    = 120.0f;
-static float MAX_Z_MM_S         = 25.0f;
+static float MAX_Z_MM_S         = 100.0f;
 static float MAX_E_DEG_S        = 180.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
-static unsigned long MIN_STEP_TICK_US = 700;
+static unsigned long MIN_STEP_TICK_US = 100;
+
+// ------------------------- Acceleration --------------------------
+// Simple trapezoidal acceleration profile.
+// This only changes the delay between steps during a move.
+static bool USE_ACCELERATION = true;
+
+// Fraction of the move used for acceleration and deceleration.
+// 0.20 means first 20% accelerates and last 20% decelerates.
+static float ACCELERATION_PORTION = 0.10f;
+
+// Start/end delay multiplier.
+// 3.0 means the move starts and ends 3x slower than the target speed.
+static float START_SPEED_FACTOR = 3.0f;
 
 // Step pulse width for A4988.
 // 3-5 us is normally safe.
@@ -617,6 +630,21 @@ bool moveJointsTo(
     feedMmPerMin,
     maxSteps
   );
+  
+  unsigned long startTickUs = (unsigned long)(tickUs * START_SPEED_FACTOR);
+
+  long accelSteps = 0;
+  long decelStart = maxSteps;
+
+  if (USE_ACCELERATION && maxSteps > 20) {
+    accelSteps = max(1L, (long)(maxSteps * ACCELERATION_PORTION));
+
+    if (accelSteps * 2 > maxSteps) {
+      accelSteps = maxSteps / 2;
+    }
+
+    decelStart = maxSteps - accelSteps;
+  }
 
   // FIXED: Proper DDA with cumulative error tracking, no overflow
   long errS = maxSteps / 2;
@@ -681,8 +709,20 @@ bool moveJointsTo(
       eSteps += dirE;
     }
 
-    delayMicroseconds(tickUs);
-  }
+    unsigned long currentTickUs = tickUs;
+
+    if (USE_ACCELERATION && accelSteps > 0) {
+      if (i < accelSteps) {
+        float t = (float)i / (float)accelSteps;
+        currentTickUs = startTickUs - (unsigned long)((startTickUs - tickUs) * t);
+      } else if (i >= decelStart) {
+        float t = (float)(i - decelStart) / (float)accelSteps;
+        currentTickUs = tickUs + (unsigned long)((startTickUs - tickUs) * t);
+      }
+    }
+
+    delayMicroseconds(currentTickUs);
+    }
 
   current.shoulderDeg = targetShoulderDeg;
   current.elbowDeg = targetElbowDeg;
