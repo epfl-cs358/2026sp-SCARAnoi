@@ -879,6 +879,8 @@
  * the position of the toolhead relative to the workspace.
  */
 
+#define X_HOME_TO_MIN 1
+#define Y_HOME_TO_MIN 1
 //#define SENSORLESS_BACKOFF_MM  { 2, 2, 0 }  // (linear=mm, rotational=°) Backoff from endstops before sensorless homing
 
 #define HOMING_BUMP_MM      { 3, 3, 3 }       // (linear=mm, rotational=°) Backoff from endstops after first bump
@@ -888,8 +890,8 @@
 //#define XY_COUNTERPART_BACKOFF_MM 0         // (mm) Backoff X after homing Y, and vice-versa
 
 //#define QUICK_HOME                          // If G28 contains XY do a diagonal move first
-//#define HOME_Y_BEFORE_X                     // If G28 contains XY home Y before X
-//#define HOME_Z_FIRST                        // Home Z first. Requires a real endstop (not a probe).
+#define HOME_Y_BEFORE_X                     // If G28 contains XY home Y before X
+#define HOME_Z_FIRST                        // Home Z first. Requires a real endstop (not a probe).
 //#define CODEPENDENT_XY_HOMING               // If X/Y can't home without homing Y/X first
 
 // @section bltouch
