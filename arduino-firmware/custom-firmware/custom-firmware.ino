@@ -13,7 +13,7 @@
 
   Supported commands:
     G0/G1 X.. Y.. Z.. E.. F..   Move. X/Y are Cartesian mm. Z is mm. E is degrees.
-    G28 [X] [Y] [Z]             Home enabled axes. E has no homing by default.
+    G28 [X] [Y] [Z] [E]         Home enabled axes.
     G90                         Absolute positioning
     G91                         Relative positioning
     G92 X.. Y.. Z.. E..         Set current logical position
@@ -75,6 +75,10 @@ static const uint8_t Y_MAX_PIN = 15;
 static const uint8_t Z_MIN_PIN = 18;
 static const uint8_t Z_MAX_PIN = 19;
 
+// E Endstop pins (Using free servo header pins for convenient 5V/GND access)
+static const uint8_t E_MIN_PIN = 5; // D4 (Servo 3)
+static const uint8_t E_MAX_PIN = 4; // D5 (Servo 2)
+
 // RAMPS servo header.
 // Servo 0 is usually D11 on RAMPS 1.4.
 static uint8_t SERVO_GRIPPER_PIN = 11;
@@ -84,8 +88,8 @@ static uint8_t SERVO_GRIPPER_PIN = 11;
 static const bool ENABLE_ACTIVE_LOW = true;
 
 // Direction inversion. Change these if an axis moves the wrong way.
-static bool INVERT_SHOULDER_DIR = false;  // RAMPS X driver
-static bool INVERT_ELBOW_DIR    = false;  // RAMPS Y driver
+static bool INVERT_SHOULDER_DIR = true;  // RAMPS X driver
+static bool INVERT_ELBOW_DIR    = true;  // RAMPS Y driver
 static bool INVERT_Z_DIR        = false;   // from your old Marlin config
 static bool INVERT_E_DIR        = false;  // wrist rotation
 
@@ -179,6 +183,9 @@ static bool USE_Y_MAX_ENDSTOP = true;
 static bool USE_Z_MIN_ENDSTOP = true;
 static bool USE_Z_MAX_ENDSTOP = true;
 
+static bool USE_E_MIN_ENDSTOP = true;
+static bool USE_E_MAX_ENDSTOP = true;
+
 // For normally-open switch wired between signal and GND with INPUT_PULLUP:
 // triggered = LOW.
 static bool ENDSTOP_TRIGGERED_STATE_LOW = true;
@@ -187,10 +194,11 @@ static bool ENDSTOP_TRIGGERED_STATE_LOW = true;
 // For debugging broken endstops, set this false.
 static bool HARD_ENDSTOP_ABORT_ON_TRIGGER = true;
 
-// ------------------------- Homing -----------------------------M360
+// ------------------------- Homing -----------------------------
 static int SHOULDER_HOME_DIR = -1;
 static int ELBOW_HOME_DIR    = -1;
 static int Z_HOME_DIR        = -1;
+static int E_HOME_DIR        = -1;
 
 // Position assigned after homing.
 // These are important because they define where the robot thinks it is.
@@ -198,24 +206,28 @@ static int Z_HOME_DIR        = -1;
 //   X = -(L1 + L2), Y = 0
 // which corresponds roughly to shoulder = 180°, elbow = 0°.
 static float SHOULDER_HOME_DEG = -87.0f;
-static float ELBOW_HOME_DEG    = -137.0f;
+static float ELBOW_HOME_DEG    = -82.0f;
 static float Z_HOME_MM         = 0.0f;
+static float E_HOME_DEG        = -137.0f; // Set to same as elbow
 
 // Homing speeds.
 static float SHOULDER_HOME_DEG_S = 40.0f;
 static float ELBOW_HOME_DEG_S    = 40.0f;
 static float Z_HOME_MM_S         = 5.0f;
+static float E_HOME_DEG_S        = 40.0f;
 
 // Homing travel limits.
 // If no endstop triggers after this much movement, homing fails.
-static float SHOULDER_HOME_MAX_TRAVEL_DEG = 260.0f;
-static float ELBOW_HOME_MAX_TRAVEL_DEG    = 260.0f;
+static float SHOULDER_HOME_MAX_TRAVEL_DEG = 360.0f;
+static float ELBOW_HOME_MAX_TRAVEL_DEG    = 360.0f;
 static float Z_HOME_MAX_TRAVEL_MM         = 300.0f;
+static float E_HOME_MAX_TRAVEL_DEG        = 360.0f;
 
 // Backoff after endstop trigger.
 static float SHOULDER_HOME_BACKOFF_DEG = 3.0f;
 static float ELBOW_HOME_BACKOFF_DEG    = 3.0f;
 static float Z_HOME_BACKOFF_MM         = 3.0f;
+static float E_HOME_BACKOFF_DEG        = 3.0f;
 
 // ------------------------- Servo gripper -------------------------
 static int SERVO_OPEN_ANGLE  = 20;
@@ -417,9 +429,12 @@ bool yMinTriggered() { return USE_Y_MIN_ENDSTOP && pinTriggered(Y_MIN_PIN); }
 bool yMaxTriggered() { return USE_Y_MAX_ENDSTOP && pinTriggered(Y_MAX_PIN); }
 bool zMinTriggered() { return USE_Z_MIN_ENDSTOP && pinTriggered(Z_MIN_PIN); }
 bool zMaxTriggered() { return USE_Z_MAX_ENDSTOP && pinTriggered(Z_MAX_PIN); }
+bool eMinTriggered() { return USE_E_MIN_ENDSTOP && pinTriggered(E_MIN_PIN); }
+bool eMaxTriggered() { return USE_E_MAX_ENDSTOP && pinTriggered(E_MAX_PIN); }
 
 bool anyEnabledEndstopTriggered() {
-  return xMinTriggered() || xMaxTriggered() || yMinTriggered() || yMaxTriggered() || zMinTriggered() || zMaxTriggered();
+  return xMinTriggered() || xMaxTriggered() || yMinTriggered() || yMaxTriggered() || 
+         zMinTriggered() || zMaxTriggered() || eMinTriggered() || eMaxTriggered();
 }
 
 void emergencyStop(const __FlashStringHelper *reason) {
@@ -935,6 +950,23 @@ bool homeElbow() {
   );
 }
 
+bool homeE() {
+  return homeSingleJoint(
+    eAxis,
+    eSteps,
+    E_STEPS_PER_DEG,
+    E_HOME_DIR,
+    E_HOME_MAX_TRAVEL_DEG,
+    E_HOME_DEG_S,
+    USE_E_MIN_ENDSTOP,
+    USE_E_MAX_ENDSTOP,
+    eMinTriggered,
+    eMaxTriggered,
+    E_HOME_BACKOFF_DEG,
+    E_HOME_DEG
+  );
+}
+
 void updatePositionAfterHoming() {
   current.shoulderDeg = (float)shoulderSteps / SHOULDER_STEPS_PER_DEG;
   current.elbowDeg = (float)elbowSteps / ELBOW_STEPS_PER_DEG;
@@ -952,19 +984,23 @@ bool handleG28(const String &line) {
   bool hasX = line.indexOf('X') >= 0;
   bool hasY = line.indexOf('Y') >= 0;
   bool hasZ = line.indexOf('Z') >= 0;
+  bool hasE = line.indexOf('E') >= 0;
 
-  bool homeAll = !hasX && !hasY && !hasZ;
-
-  if (homeAll || hasZ) {
-    if (!homeZ()) return false;
-  }
-
+  bool homeAll = !hasX && !hasY && !hasZ && !hasE;
+  
   if (homeAll || hasX) {
     if (!homeShoulder()) return false;
   }
-
+  
   if (homeAll || hasY) {
     if (!homeElbow()) return false;
+  }
+  
+  if (homeAll || hasE) {
+    if (!homeE()) return false;
+  }
+  if (homeAll || hasZ) {
+    if (!homeZ()) return false;
   }
 
   updatePositionAfterHoming();
@@ -1145,6 +1181,12 @@ void reportEndstops() {
 
   Serial.print(F("z_max: "));
   Serial.println(zMaxTriggered() ? F("TRIGGERED") : F("open"));
+  
+  Serial.print(F("e_min: "));
+  Serial.println(eMinTriggered() ? F("TRIGGERED") : F("open"));
+
+  Serial.print(F("e_max: "));
+  Serial.println(eMaxTriggered() ? F("TRIGGERED") : F("open"));
 }
 
 void reportSettings() {
@@ -1207,7 +1249,11 @@ void reportSettings() {
   Serial.print(F(" Zmin="));
   Serial.print(USE_Z_MIN_ENDSTOP);
   Serial.print(F(" Zmax="));
-  Serial.println(USE_Z_MAX_ENDSTOP);
+  Serial.print(USE_Z_MAX_ENDSTOP);
+  Serial.print(F(" Emin="));
+  Serial.print(USE_E_MIN_ENDSTOP);
+  Serial.print(F(" Emax="));
+  Serial.println(USE_E_MAX_ENDSTOP);
 }
 
 void handleM92(const String &line) {
@@ -1514,6 +1560,8 @@ void setupPins() {
   pinMode(Y_MAX_PIN, INPUT_PULLUP);
   pinMode(Z_MIN_PIN, INPUT_PULLUP);
   pinMode(Z_MAX_PIN, INPUT_PULLUP);
+  pinMode(E_MIN_PIN, INPUT_PULLUP);
+  pinMode(E_MAX_PIN, INPUT_PULLUP);
 
   disableMotors();
 }
@@ -1524,8 +1572,8 @@ void setup() {
 
   current.shoulderDeg = SHOULDER_HOME_DEG;
   current.elbowDeg = ELBOW_HOME_DEG;
+  current.e = E_HOME_DEG;
   current.z = Z_HOME_MM;
-  current.e = 0.0f;
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
   updateStepCountersFromPosition();
 
