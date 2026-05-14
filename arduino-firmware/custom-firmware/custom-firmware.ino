@@ -12,7 +12,7 @@
   It implements a small Marlin-like command set for manual robot control.
 
   Supported commands:
-    G0/G1 X.. Y.. Z.. E.. F..   Move. X/Y are Cartesian mm. Z is mm. E is degrees.
+    G0/G1 X.. Y.. Z.. E.. F..   Move. X/Y are Cartesian mm. Z is mm. E is logical gripper angle.
     G28 [X] [Y] [Z] [E]         Home enabled axes.
     G90                         Absolute positioning
     G91                         Relative positioning
@@ -28,12 +28,19 @@
     M280 P0 Sangle              Move servo gripper to angle
     M281 Oangle Cangle          Set gripper open/close angles in RAM only
     M282 P0                     Detach servo
-    M360 X.. Y.. Z.. E.. F..    Raw motor move. X/Y/E are degrees, Z is mm. No SCARA IK.
+    M360 X.. Y.. Z.. E.. F..    Joint move. X/Y are joint degrees, Z is mm, E is logical gripper angle. No SCARA IK.
+    M361                        Report gripper orientation mode
+    M361 S0                     Independent mode: gripper keeps a fixed world direction.
+    M361 S1                     Tracking mode: gripper stays fixed relative to the elbow.
     M503                        Report main settings
     M999                        Clear emergency stop
 
   Important:
     - X/Y G-code targets are converted to SCARA joint angles inside the firmware.
+    - In normal G0/G1 moves, E is now the logical gripper angle, not the raw E motor angle.
+    - In independent mode, the E motor compensates shoulder rotation only.
+    - In tracking mode, the E motor compensates shoulder rotation and adds elbow rotation.
+    - M360 is also subject to the selected gripper mode, so X/Y joint moves compensate E automatically.
     - The firmware uses INPUT_PULLUP for endstops.
     - For a normally-open switch wired between signal and GND, triggered = LOW.
 */
@@ -75,9 +82,9 @@ static const uint8_t Y_MAX_PIN = 15;
 static const uint8_t Z_MIN_PIN = 18;
 static const uint8_t Z_MAX_PIN = 19;
 
-// E Endstop pins (Using free servo header pins for convenient 5V/GND access)
-static const uint8_t E_MIN_PIN = 5; // D4 (Servo 3)
-static const uint8_t E_MAX_PIN = 4; // D5 (Servo 2)
+// E Endstop pins using free servo header pins.
+static const uint8_t E_MIN_PIN = 5; // D5
+static const uint8_t E_MAX_PIN = 4; // D4
 
 // RAMPS servo header.
 // Servo 0 is usually D11 on RAMPS 1.4.
@@ -90,28 +97,30 @@ static const bool ENABLE_ACTIVE_LOW = true;
 // Direction inversion. Change these if an axis moves the wrong way.
 static bool INVERT_SHOULDER_DIR = true;  // RAMPS X driver
 static bool INVERT_ELBOW_DIR    = true;  // RAMPS Y driver
-static bool INVERT_Z_DIR        = false;   // from your old Marlin config
-static bool INVERT_E_DIR        = false;  // wrist rotation
+static bool INVERT_Z_DIR        = false; // from your old Marlin config
+static bool INVERT_E_DIR        = false; // wrist rotation
 
 // ------------------------- Steps per unit ------------------------
 // From your previous Marlin config:
 //   { 88.8889, 35.5556, 400, 35.5556 }
 // Here X/Y become SCARA joint degrees.
-static float SHOULDER_STEPS_PER_DEG = 70.55;
-static float ELBOW_STEPS_PER_DEG    = 25.18;
+static float SHOULDER_STEPS_PER_DEG = 88.8889;
+static float ELBOW_STEPS_PER_DEG    = 35.5556;
 static float Z_STEPS_PER_MM         = 400.0f;
-static float E_STEPS_PER_DEG        = 25.18;
+static float E_STEPS_PER_DEG        = 35.5556;
 
 // ------------------------- Speed limits --------------------------
 // Conservative defaults. Increase only after testing.
 static float MAX_SHOULDER_DEG_S = 60.0f;
 static float MAX_ELBOW_DEG_S    = 120.0f;
-static float MAX_Z_MM_S         = 100.0f;
+static float MAX_Z_MM_S         = 25.0f;
 static float MAX_E_DEG_S        = 180.0f;
+
+static float CURRENT_SPEED = 2000.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
-static unsigned long MIN_STEP_TICK_US = 100;
+static unsigned long MIN_STEP_TICK_US = 200;
 
 // ------------------------- Acceleration --------------------------
 // Simple trapezoidal acceleration profile.
@@ -124,7 +133,7 @@ static float ACCELERATION_PORTION = 0.10f;
 
 // Start/end delay multiplier.
 // 3.0 means the move starts and ends 3x slower than the target speed.
-static float START_SPEED_FACTOR = 3.0f;
+static float START_SPEED_FACTOR = 2.0f;
 
 // Step pulse width for A4988.
 // 3-5 us is normally safe.
@@ -152,6 +161,20 @@ static int SCARA_ELBOW_SIGN = -1;
 // Split long Cartesian moves into small segments.
 // Smaller = closer to straight XY path, but more computation.
 static float CARTESIAN_SEGMENT_MM = 2.0f;
+
+// --------------------- Gripper orientation modes -----------------
+// 0 = independent mode: gripper keeps a fixed world direction.
+//     Motor E = logical E - shoulder.
+// 1 = tracking mode: gripper stays fixed relative to the elbow.
+//     Motor E = logical E - shoulder + elbow.
+// Home uses tracking mode by default.
+static int GRIPPER_MODE = 1;
+
+static const int GRIPPER_MODE_INDEPENDENT = 0;
+static const int GRIPPER_MODE_TRACKING    = 1;
+
+// If the compensation moves the gripper in the wrong direction, change this to -1.
+static int GRIPPER_COMPENSATION_SIGN = 1;
 
 // ------------------------- Work limits ---------------------------
 // Defaults based on your old Marlin file.
@@ -190,6 +213,11 @@ static bool USE_E_MAX_ENDSTOP = true;
 // triggered = LOW.
 static bool ENDSTOP_TRIGGERED_STATE_LOW = true;
 
+// Debounce only happens after a pin first looks triggered.
+// This helps against the random emergency stops caused by very short noise spikes.
+static const int ENDSTOP_DEBOUNCE_READS = 3;
+static const unsigned int ENDSTOP_DEBOUNCE_US = 80;
+
 // During normal movement, abort if an enabled endstop is triggered.
 // For debugging broken endstops, set this false.
 static bool HARD_ENDSTOP_ABORT_ON_TRIGGER = true;
@@ -205,10 +233,13 @@ static int E_HOME_DIR        = -1;
 // Defaults chosen to match your old Marlin home position:
 //   X = -(L1 + L2), Y = 0
 // which corresponds roughly to shoulder = 180°, elbow = 0°.
-static float SHOULDER_HOME_DEG = -87.0f;
-static float ELBOW_HOME_DEG    = -82.0f;
+static float SHOULDER_HOME_DEG = -58.0f;
+static float ELBOW_HOME_DEG    = -66.0f;
 static float Z_HOME_MM         = 0.0f;
-static float E_HOME_DEG        = -137.0f; // Set to same as elbow
+
+// This is the raw E motor angle after E homing.
+// The reported logical E is computed from this and the current gripper mode.
+static float E_HOME_DEG        = -100.0f;
 
 // Homing speeds.
 static float SHOULDER_HOME_DEG_S = 40.0f;
@@ -256,12 +287,13 @@ struct Position {
   float y;
   float z;
   float e;
+  float eMotorDeg;
   float shoulderDeg;
   float elbowDeg;
 };
 
 Position current = {
-  -(185.412f + 111.000f), 0.0f, 0.0f, 0.0f,
+  -(185.412f + 111.000f), 0.0f, 0.0f, 0.0f, 0.0f,
   180.0f, 0.0f
 };
 
@@ -291,6 +323,9 @@ bool gripperAttached = false;
 // ================================================================
 // ======================= UTILITY HELPERS =========================
 // ================================================================
+
+bool hasParam(const String &line, char code);
+float getParam(const String &line, char code, float fallback);
 
 float degToRad(float deg) {
   return deg * PI / 180.0f;
@@ -417,10 +452,21 @@ void stepAxis(const AxisPins &axis) {
   digitalWrite(axis.stepPin, LOW);
 }
 
-bool pinTriggered(uint8_t pin) {
+bool rawPinTriggered(uint8_t pin) {
   int value = digitalRead(pin);
   if (ENDSTOP_TRIGGERED_STATE_LOW) return value == LOW;
   return value == HIGH;
+}
+
+bool pinTriggered(uint8_t pin) {
+  if (!rawPinTriggered(pin)) return false;
+
+  for (int i = 0; i < ENDSTOP_DEBOUNCE_READS; i++) {
+    delayMicroseconds(ENDSTOP_DEBOUNCE_US);
+    if (!rawPinTriggered(pin)) return false;
+  }
+
+  return true;
 }
 
 bool xMinTriggered() { return USE_X_MIN_ENDSTOP && pinTriggered(X_MIN_PIN); }
@@ -432,9 +478,40 @@ bool zMaxTriggered() { return USE_Z_MAX_ENDSTOP && pinTriggered(Z_MAX_PIN); }
 bool eMinTriggered() { return USE_E_MIN_ENDSTOP && pinTriggered(E_MIN_PIN); }
 bool eMaxTriggered() { return USE_E_MAX_ENDSTOP && pinTriggered(E_MAX_PIN); }
 
+const char *firstTriggeredEndstopName() {
+  if (xMinTriggered()) return "x_min";
+  if (xMaxTriggered()) return "x_max";
+  if (yMinTriggered()) return "y_min";
+  if (yMaxTriggered()) return "y_max";
+  if (zMinTriggered()) return "z_min";
+  if (zMaxTriggered()) return "z_max";
+  if (eMinTriggered()) return "e_min";
+  if (eMaxTriggered()) return "e_max";
+  return NULL;
+}
+
 bool anyEnabledEndstopTriggered() {
-  return xMinTriggered() || xMaxTriggered() || yMinTriggered() || yMaxTriggered() || 
-         zMinTriggered() || zMaxTriggered() || eMinTriggered() || eMaxTriggered();
+  return firstTriggeredEndstopName() != NULL;
+}
+
+float gripperCompensationFor(float shoulderDeg, float elbowDeg) {
+  float compensation = 0;
+
+  if (GRIPPER_MODE == GRIPPER_MODE_TRACKING) {
+    compensation += elbowDeg;
+  } else {
+    compensation -= shoulderDeg;
+  }
+
+  return compensation * (float)GRIPPER_COMPENSATION_SIGN;
+}
+
+float logicalToMotorE(float logicalE, float shoulderDeg, float elbowDeg) {
+  return logicalE + gripperCompensationFor(shoulderDeg, elbowDeg);
+}
+
+float motorToLogicalE(float motorE, float shoulderDeg, float elbowDeg) {
+  return motorE - gripperCompensationFor(shoulderDeg, elbowDeg);
 }
 
 void emergencyStop(const __FlashStringHelper *reason) {
@@ -449,11 +526,23 @@ void emergencyStop(const __FlashStringHelper *reason) {
   Serial.println();
 }
 
+void emergencyStopEndstop(const char *name) {
+  emergencyStopped = true;
+  disableMotors();
+
+  Serial.print(F("error: emergency stop - enabled endstop triggered during movement"));
+  if (name) {
+    Serial.print(F(": "));
+    Serial.print(name);
+  }
+  Serial.println();
+}
+
 void updateStepCountersFromPosition() {
   shoulderSteps = lround(current.shoulderDeg * SHOULDER_STEPS_PER_DEG);
   elbowSteps    = lround(current.elbowDeg    * ELBOW_STEPS_PER_DEG);
   zSteps        = lround(current.z           * Z_STEPS_PER_MM);
-  eSteps        = lround(current.e           * E_STEPS_PER_DEG);
+  eSteps        = lround(current.eMotorDeg   * E_STEPS_PER_DEG);
 }
 
 void forwardKinematics(float shoulderDeg, float elbowDeg, float &x, float &y) {
@@ -555,7 +644,7 @@ unsigned long computeTickDelayUs(
   float startShoulder, float targetShoulder,
   float startElbow, float targetElbow,
   float startZ, float targetZ,
-  float startE, float targetE,
+  float startEMotor, float targetEMotor,
   float cartDistanceMm,
   float feedMmPerMin,
   long maxSteps
@@ -577,26 +666,29 @@ unsigned long computeTickDelayUs(
   // Joint speeds limit the move
   requiredSeconds = max(requiredSeconds, fabs(targetShoulder - startShoulder) / MAX_SHOULDER_DEG_S);
   requiredSeconds = max(requiredSeconds, fabs(targetElbow - startElbow) / MAX_ELBOW_DEG_S);
-  
-  // Z and E move in parallel with XY
+
+  // Z and raw E motor move in parallel with XY
   requiredSeconds = max(requiredSeconds, fabs(targetZ - startZ) / MAX_Z_MM_S);
-  requiredSeconds = max(requiredSeconds, fabs(targetE - startE) / MAX_E_DEG_S);
+  requiredSeconds = max(requiredSeconds, fabs(targetEMotor - startEMotor) / MAX_E_DEG_S);
 
   // Clamp to prevent overflow
-  if (requiredSeconds > 3600.0f) requiredSeconds = 3600.0f;  // 1 hour max
+  if (requiredSeconds > 3600.0f) requiredSeconds = 3600.0f;
   if (requiredSeconds < 0.001f) requiredSeconds = 0.001f;
 
   unsigned long tickUs = (unsigned long)((requiredSeconds * 1000000.0f) / (float)maxSteps);
-  if (tickUs < MIN_STEP_TICK_US) tickUs = MIN_STEP_TICK_US;
-  
+  if (tickUs > STEP_PULSE_US) {
+      tickUs -= STEP_PULSE_US;
+  }
+
   return tickUs;
 }
 
-bool moveJointsTo(
+bool moveJointsToMotor(
   float targetShoulderDeg,
   float targetElbowDeg,
   float targetZMm,
-  float targetEDeg,
+  float targetLogicalEDeg,
+  float targetEMotorDeg,
   float cartDistanceMm,
   float feedMmPerMin
 ) {
@@ -610,7 +702,7 @@ bool moveJointsTo(
   long targetShoulderSteps = lround(targetShoulderDeg * SHOULDER_STEPS_PER_DEG);
   long targetElbowSteps    = lround(targetElbowDeg    * ELBOW_STEPS_PER_DEG);
   long targetZSteps        = lround(targetZMm         * Z_STEPS_PER_MM);
-  long targetESteps        = lround(targetEDeg        * E_STEPS_PER_DEG);
+  long targetESteps        = lround(targetEMotorDeg   * E_STEPS_PER_DEG);
 
   long dS = targetShoulderSteps - shoulderSteps;
   long dEl = targetElbowSteps - elbowSteps;
@@ -640,12 +732,12 @@ bool moveJointsTo(
     current.shoulderDeg, targetShoulderDeg,
     current.elbowDeg, targetElbowDeg,
     current.z, targetZMm,
-    current.e, targetEDeg,
+    current.eMotorDeg, targetEMotorDeg,
     cartDistanceMm,
     feedMmPerMin,
     maxSteps
   );
-  
+
   unsigned long startTickUs = (unsigned long)(tickUs * START_SPEED_FACTOR);
 
   long accelSteps = 0;
@@ -669,15 +761,18 @@ bool moveJointsTo(
 
   for (long i = 0; i < maxSteps; i++) {
     // Non-blocking emergency check (doesn't stall motion loop)
-    if (i % 50 == 0) {  // Check every 50 steps instead of every step
+    if (i % 50 == 0) {
       checkSerialEmergencyDuringMotion();
     }
-    
+
     if (emergencyStopped) return false;
 
-    if (HARD_ENDSTOP_ABORT_ON_TRIGGER && anyEnabledEndstopTriggered()) {
-      emergencyStop(F("enabled endstop triggered during movement"));
-      return false;
+    if (HARD_ENDSTOP_ABORT_ON_TRIGGER) {
+      const char *hit = firstTriggeredEndstopName();
+      if (hit != NULL) {
+        emergencyStopEndstop(hit);
+        return false;
+      }
     }
 
     // DDA stepping - much more stable than Bresenham with accumulators
@@ -737,15 +832,37 @@ bool moveJointsTo(
     }
 
     delayMicroseconds(currentTickUs);
-    }
+  }
 
   current.shoulderDeg = targetShoulderDeg;
   current.elbowDeg = targetElbowDeg;
   current.z = targetZMm;
-  current.e = targetEDeg;
+  current.e = targetLogicalEDeg;
+  current.eMotorDeg = targetEMotorDeg;
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
 
   return true;
+}
+
+bool moveJointsTo(
+  float targetShoulderDeg,
+  float targetElbowDeg,
+  float targetZMm,
+  float targetLogicalEDeg,
+  float cartDistanceMm,
+  float feedMmPerMin
+) {
+  float targetEMotorDeg = logicalToMotorE(targetLogicalEDeg, targetShoulderDeg, targetElbowDeg);
+
+  return moveJointsToMotor(
+    targetShoulderDeg,
+    targetElbowDeg,
+    targetZMm,
+    targetLogicalEDeg,
+    targetEMotorDeg,
+    cartDistanceMm,
+    feedMmPerMin
+  );
 }
 
 bool moveLinearCartesian(float targetX, float targetY, float targetZ, float targetE, float feedMmPerMin) {
@@ -764,7 +881,6 @@ bool moveLinearCartesian(float targetX, float targetY, float targetZ, float targ
 
   // FIXED: Only XY distance for feedrate, not Z
   float xyDistance = sqrt(dx * dx + dy * dy);
-  float maxZEDistance = max(fabs(dz), fabs(de));
 
   int segments = max(1, (int)ceil(xyDistance / CARTESIAN_SEGMENT_MM));
 
@@ -813,6 +929,7 @@ bool moveLinearCartesian(float targetX, float targetY, float targetZ, float targ
   current.e = targetE;
   current.shoulderDeg = targetShoulder;
   current.elbowDeg = targetElbow;
+  current.eMotorDeg = logicalToMotorE(current.e, current.shoulderDeg, current.elbowDeg);
   updateStepCountersFromPosition();
 
   return true;
@@ -821,6 +938,21 @@ bool moveLinearCartesian(float targetX, float targetY, float targetZ, float targ
 // ================================================================
 // =========================== HOMING ==============================
 // ================================================================
+
+void stepECompensationDuringHome(float axisUnitsMoved, float eCompensationPerUnit, float &eCompensationRemainder) {
+  if (approximatelyZero(eCompensationPerUnit)) return;
+
+  float eDeltaDeg = axisUnitsMoved * eCompensationPerUnit;
+  eCompensationRemainder += eDeltaDeg * E_STEPS_PER_DEG;
+
+  while (fabs(eCompensationRemainder) >= 1.0f) {
+    int dirE = eCompensationRemainder > 0.0f ? +1 : -1;
+    setDirection(eAxis, dirE);
+    stepAxis(eAxis);
+    eSteps += dirE;
+    eCompensationRemainder -= (float)dirE;
+  }
+}
 
 bool homeSingleJoint(
   const AxisPins &axis,
@@ -834,7 +966,8 @@ bool homeSingleJoint(
   bool (*minTriggeredFunc)(),
   bool (*maxTriggeredFunc)(),
   float backoffUnits,
-  float homeAssignedUnit
+  float homeAssignedUnit,
+  float eCompensationPerUnit
 ) {
   if (!useMin && !useMax) {
     Serial.println(F("echo: homing skipped because endstop is disabled"));
@@ -862,8 +995,14 @@ bool homeSingleJoint(
 
   setDirection(axis, homeDir);
 
+  float eCompensationRemainder = 0.0f;
+
   long maxTravelSteps = labs(lround(maxTravelUnits * stepsPerUnit));
   unsigned long stepDelayUs = (unsigned long)(1000000.0f / max(1.0f, speedUnitsPerSec * stepsPerUnit));
+  if (stepDelayUs > STEP_PULSE_US) {
+    stepDelayUs -= STEP_PULSE_US;
+  } 
+
   if (stepDelayUs < MIN_STEP_TICK_US) stepDelayUs = MIN_STEP_TICK_US;
 
   for (long i = 0; i < maxTravelSteps; i++) {
@@ -875,6 +1014,7 @@ bool homeSingleJoint(
 
     stepAxis(axis);
     stepCounter += homeDir;
+    stepECompensationDuringHome((float)homeDir / stepsPerUnit, eCompensationPerUnit, eCompensationRemainder);
     delayMicroseconds(stepDelayUs);
 
     if (i == maxTravelSteps - 1) {
@@ -892,7 +1032,8 @@ bool homeSingleJoint(
 
     stepAxis(axis);
     stepCounter -= homeDir;
-    delayMicroseconds(stepDelayUs);
+    stepECompensationDuringHome((float)(-homeDir) / stepsPerUnit, eCompensationPerUnit, eCompensationRemainder);
+    delayMicroseconds(2000);
   }
 
   stepCounter = lround(homeAssignedUnit * stepsPerUnit);
@@ -912,7 +1053,8 @@ bool homeZ() {
     zMinTriggered,
     zMaxTriggered,
     Z_HOME_BACKOFF_MM,
-    Z_HOME_MM
+    Z_HOME_MM,
+    0.0f
   );
 }
 
@@ -929,7 +1071,8 @@ bool homeShoulder() {
     xMinTriggered,
     xMaxTriggered,
     SHOULDER_HOME_BACKOFF_DEG,
-    SHOULDER_HOME_DEG
+    SHOULDER_HOME_DEG,
+    -(float)GRIPPER_COMPENSATION_SIGN
   );
 }
 
@@ -946,7 +1089,8 @@ bool homeElbow() {
     yMinTriggered,
     yMaxTriggered,
     ELBOW_HOME_BACKOFF_DEG,
-    ELBOW_HOME_DEG
+    ELBOW_HOME_DEG,
+    0.0f
   );
 }
 
@@ -963,7 +1107,8 @@ bool homeE() {
     eMinTriggered,
     eMaxTriggered,
     E_HOME_BACKOFF_DEG,
-    E_HOME_DEG
+    E_HOME_DEG,
+    0.0f
   );
 }
 
@@ -971,11 +1116,14 @@ void updatePositionAfterHoming() {
   current.shoulderDeg = (float)shoulderSteps / SHOULDER_STEPS_PER_DEG;
   current.elbowDeg = (float)elbowSteps / ELBOW_STEPS_PER_DEG;
   current.z = (float)zSteps / Z_STEPS_PER_MM;
-  current.e = (float)eSteps / E_STEPS_PER_DEG;
+  current.eMotorDeg = (float)eSteps / E_STEPS_PER_DEG;
+  current.e = motorToLogicalE(current.eMotorDeg, current.shoulderDeg, current.elbowDeg);
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
 }
 
 bool handleG28(const String &line) {
+  GRIPPER_MODE = GRIPPER_MODE_TRACKING;
+
   if (emergencyStopped) {
     printError(F("cannot home while emergency stopped"));
     return false;
@@ -987,18 +1135,21 @@ bool handleG28(const String &line) {
   bool hasE = line.indexOf('E') >= 0;
 
   bool homeAll = !hasX && !hasY && !hasZ && !hasE;
-  
-  if (homeAll || hasX) {
-    if (!homeShoulder()) return false;
-  }
-  
-  if (homeAll || hasY) {
-    if (!homeElbow()) return false;
-  }
-  
+
+  // Home E first, otherwise a full G28 would compensate E during X/Y homing,
+  // then overwrite that compensation by homing E at the end.
   if (homeAll || hasE) {
     if (!homeE()) return false;
   }
+
+  if (homeAll || hasX) {
+    if (!homeShoulder()) return false;
+  }
+
+  if (homeAll || hasY) {
+    if (!homeElbow()) return false;
+  }
+
   if (homeAll || hasZ) {
     if (!homeZ()) return false;
   }
@@ -1014,16 +1165,16 @@ bool handleG28(const String &line) {
 bool hasParam(const String &line, char code) {
   int idx = line.indexOf(code);
   if (idx < 0) return false;
-  
+
   // Must be preceded by space or start of line
   if (idx > 0 && isAlphaNumeric(line[idx - 1])) return false;
-  
+
   // Must be followed by digit, sign, or decimal point
   if (idx + 1 < line.length()) {
     char next = line[idx + 1];
     if (!isDigit(next) && next != '-' && next != '+' && next != '.') return false;
   }
-  
+
   return true;
 }
 
@@ -1058,7 +1209,7 @@ int getCommandNumber(const String &line, char letter) {
   int start = idx + 1;
   // FIXED: Skip spaces after letter
   while (start < line.length() && line[start] == ' ') start++;
-  
+
   int end = start;
   while (end < line.length() && isDigit(line[end])) {
     end++;
@@ -1077,7 +1228,6 @@ String stripCommentAndUpper(String line) {
   return line;
 }
 
-
 bool moveRawMotors(float deltaShoulderDeg, float deltaElbowDeg, float deltaZMm, float deltaEDeg, float feedUnitsPerMin) {
   if (emergencyStopped) {
     printError(F("machine is emergency stopped; send M999 to clear"));
@@ -1087,26 +1237,32 @@ bool moveRawMotors(float deltaShoulderDeg, float deltaElbowDeg, float deltaZMm, 
   float targetShoulder = current.shoulderDeg + deltaShoulderDeg;
   float targetElbow = current.elbowDeg + deltaElbowDeg;
   float targetZ = current.z + deltaZMm;
-  float targetE = current.e + deltaEDeg;
+
+  // M360 is still a direct joint move for X/Y/Z, but E is logical.
+  // So if X/Y move and E is not given, the gripper keeps the same logical angle
+  // and the raw E motor compensates according to the selected M361 mode.
+  float targetLogicalE = current.e + deltaEDeg;
+  float targetEMotor = logicalToMotorE(targetLogicalE, targetShoulder, targetElbow);
 
   if (SOFTWARE_LIMITS_ENABLED) {
     if (targetZ < Z_MIN_MM || targetZ > Z_MAX_MM) {
-      printError(F("raw move blocked: Z outside software limits"));
+      printError(F("M360 blocked: Z outside software limits"));
       return false;
     }
 
-    if (targetE < E_MIN_DEG || targetE > E_MAX_DEG) {
-      printError(F("raw move blocked: E outside software limits"));
+    if (targetLogicalE < E_MIN_DEG || targetLogicalE > E_MAX_DEG) {
+      printError(F("M360 blocked: logical E outside software limits"));
       return false;
     }
   }
 
-  // For raw movement, feed is interpreted as units/min for the largest moving axis.
+  // For M360, feed is interpreted as units/min for the largest moving axis.
   // X/Y/E use degrees, Z uses mm.
-  float largestMove = max(max(fabs(deltaShoulderDeg), fabs(deltaElbowDeg)), max(fabs(deltaZMm), fabs(deltaEDeg)));
+  float eMotorDelta = targetEMotor - current.eMotorDeg;
+  float largestMove = max(max(fabs(deltaShoulderDeg), fabs(deltaElbowDeg)), max(fabs(deltaZMm), fabs(eMotorDelta)));
   float fakeDistance = largestMove;
 
-  if (!moveJointsTo(targetShoulder, targetElbow, targetZ, targetE, fakeDistance, feedUnitsPerMin)) {
+  if (!moveJointsToMotor(targetShoulder, targetElbow, targetZ, targetLogicalE, targetEMotor, fakeDistance, feedUnitsPerMin)) {
     return false;
   }
 
@@ -1119,8 +1275,9 @@ void handleRawMoveM360(const String &line) {
   float dx = getParam(line, 'X', 0.0f); // shoulder motor, degrees
   float dy = getParam(line, 'Y', 0.0f); // elbow/platform motor, degrees
   float dz = getParam(line, 'Z', 0.0f); // Z motor, mm
-  float de = getParam(line, 'E', 0.0f); // wrist motor, degrees
-  float feed = getParam(line, 'F', 600.0f);
+  float de = getParam(line, 'E', 0.0f); // logical gripper angle, degrees
+  float feed = getParam(line, 'F', CURRENT_SPEED);
+  CURRENT_SPEED = feed;
 
   if (!hasParam(line, 'X') && !hasParam(line, 'Y') && !hasParam(line, 'Z') && !hasParam(line, 'E')) {
     printError(F("M360 needs at least one axis parameter"));
@@ -1131,7 +1288,6 @@ void handleRawMoveM360(const String &line) {
     printOk();
   }
 }
-
 
 // ================================================================
 // ======================= COMMAND HANDLERS ========================
@@ -1147,10 +1303,16 @@ void reportPosition() {
   Serial.print(F(" E:"));
   Serial.print(current.e, 3);
 
+  Serial.print(F("  E_motor:"));
+  Serial.print(current.eMotorDeg, 3);
+
   Serial.print(F("  Joints theta:"));
   Serial.print(current.shoulderDeg, 3);
   Serial.print(F(" psi:"));
   Serial.print(current.elbowDeg, 3);
+
+  Serial.print(F("  gripper_mode:"));
+  Serial.print(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
 
   Serial.print(F("  steps S:"));
   Serial.print(shoulderSteps);
@@ -1181,7 +1343,7 @@ void reportEndstops() {
 
   Serial.print(F("z_max: "));
   Serial.println(zMaxTriggered() ? F("TRIGGERED") : F("open"));
-  
+
   Serial.print(F("e_min: "));
   Serial.println(eMinTriggered() ? F("TRIGGERED") : F("open"));
 
@@ -1207,6 +1369,12 @@ void reportSettings() {
   Serial.print(F(" mm, L2="));
   Serial.print(LINK_2_MM, 3);
   Serial.println(F(" mm"));
+
+  Serial.print(F("Gripper mode: "));
+  Serial.println(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
+
+  Serial.print(F("Gripper compensation sign: "));
+  Serial.println(GRIPPER_COMPENSATION_SIGN);
 
   Serial.print(F("Software limits: "));
   Serial.println(SOFTWARE_LIMITS_ENABLED ? F("ON") : F("OFF"));
@@ -1328,9 +1496,29 @@ void handleM282(const String &line) {
   Serial.println(F("echo: servo P0 detached"));
 }
 
+void handleM361(const String &line) {
+  if (hasParam(line, 'S')) {
+    int mode = (int)getParam(line, 'S', GRIPPER_MODE);
+
+    if (mode != GRIPPER_MODE_INDEPENDENT && mode != GRIPPER_MODE_TRACKING) {
+      printError(F("M361 S must be 0 independent or 1 tracking"));
+      return;
+    }
+
+    GRIPPER_MODE = mode;
+
+    // Keep the raw E motor where it is and recompute the logical gripper angle.
+    current.e = motorToLogicalE(current.eMotorDeg, current.shoulderDeg, current.elbowDeg);
+  }
+
+  Serial.print(F("echo: gripper mode="));
+  Serial.println(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
+}
+
 void handleG92(const String &line) {
   float newX = current.x, newY = current.y, newZ = current.z, newE = current.e;
-  
+
+
   if (hasParam(line, 'X')) newX = getParam(line, 'X', current.x);
   if (hasParam(line, 'Y')) newY = getParam(line, 'Y', current.y);
   if (hasParam(line, 'Z')) newZ = getParam(line, 'Z', current.z);
@@ -1346,6 +1534,7 @@ void handleG92(const String &line) {
     current.e = newE;
     current.shoulderDeg = s;
     current.elbowDeg = p;
+    current.eMotorDeg = logicalToMotorE(current.e, current.shoulderDeg, current.elbowDeg);
     updateStepCountersFromPosition();
   } else {
     printError(F("G92 XY position outside reachable workspace"));
@@ -1354,7 +1543,8 @@ void handleG92(const String &line) {
 }
 
 void handleMove(const String &line) {
-  float feed = getParam(line, 'F', 1200.0f);
+  float feed = getParam(line, 'F', CURRENT_SPEED);
+  CURRENT_SPEED = feed;
 
   float targetX = current.x;
   float targetY = current.y;
@@ -1503,6 +1693,12 @@ void handleCommand(String rawLine) {
     return;
   }
 
+  if (m == 361) {
+    handleM361(line);
+    printOk();
+    return;
+  }
+
   if (m == 400) {
     // Moves are blocking, so by the time this is reached motion is complete.
     printOk();
@@ -1572,17 +1768,17 @@ void setup() {
 
   current.shoulderDeg = SHOULDER_HOME_DEG;
   current.elbowDeg = ELBOW_HOME_DEG;
-  current.e = E_HOME_DEG;
   current.z = Z_HOME_MM;
+  current.eMotorDeg = E_HOME_DEG;
+  current.e = motorToLogicalE(current.eMotorDeg, current.shoulderDeg, current.elbowDeg);
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
   updateStepCountersFromPosition();
 
   Serial.println(F("SCARAnoi custom RAMPS firmware ready"));
   Serial.println(F("echo: send M503 for settings, M119 for endstops, M114 for position"));
+  Serial.println(F("echo: M361 S0 independent gripper mode, M361 S1 tracking gripper mode"));
   printOk();
 }
-
-
 
 void loop() {
   while (Serial.available() > 0) {
