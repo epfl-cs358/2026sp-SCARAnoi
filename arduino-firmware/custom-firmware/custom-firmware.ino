@@ -53,6 +53,8 @@
 // ========================= USER SETTINGS =========================
 // ================================================================
 
+#define G_CODE_SERIAL Serial2
+
 // Serial speed. This matches your old Marlin config.
 static const long BAUDRATE = 250000;
 
@@ -346,12 +348,12 @@ bool approximatelyZero(float v) {
 }
 
 void printOk() {
-  Serial.println(F("ok"));
+  G_CODE_SERIAL.println(F("ok"));
 }
 
 void printError(const __FlashStringHelper *msg) {
-  Serial.print(F("error: "));
-  Serial.println(msg);
+  G_CODE_SERIAL.print(F("error: "));
+  G_CODE_SERIAL.println(msg);
 }
 
 void updateGlobalMotorState() {
@@ -518,24 +520,24 @@ void emergencyStop(const __FlashStringHelper *reason) {
   emergencyStopped = true;
   disableMotors();
 
-  Serial.print(F("error: emergency stop"));
+  G_CODE_SERIAL.print(F("error: emergency stop"));
   if (reason) {
-    Serial.print(F(" - "));
-    Serial.print(reason);
+    G_CODE_SERIAL.print(F(" - "));
+    G_CODE_SERIAL.print(reason);
   }
-  Serial.println();
+  G_CODE_SERIAL.println();
 }
 
 void emergencyStopEndstop(const char *name) {
   emergencyStopped = true;
   disableMotors();
 
-  Serial.print(F("error: emergency stop - enabled endstop triggered during movement"));
+  G_CODE_SERIAL.print(F("error: emergency stop - enabled endstop triggered during movement"));
   if (name) {
-    Serial.print(F(": "));
-    Serial.print(name);
+    G_CODE_SERIAL.print(F(": "));
+    G_CODE_SERIAL.print(name);
   }
-  Serial.println();
+  G_CODE_SERIAL.println();
 }
 
 void updateStepCountersFromPosition() {
@@ -604,7 +606,7 @@ bool checkLogicalLimits(float x, float y, float z, float e) {
 }
 
 // ================================================================
-// =================== SERIAL / EMERGENCY CHECK ====================
+// =================== G_CODE_SERIAL / EMERGENCY CHECK ====================
 // ================================================================
 
 bool serialLineLooksEmergency(const String &line) {
@@ -617,8 +619,8 @@ bool serialLineLooksEmergency(const String &line) {
 // This is called during motion.
 // It only looks for M112 so emergency stop is not stuck behind a long move.
 void checkSerialEmergencyDuringMotion() {
-  while (Serial.available() > 0) {
-    char c = (char)Serial.read();
+  while (G_CODE_SERIAL.available() > 0) {
+    char c = (char)G_CODE_SERIAL.read();
 
     if (c == '\r') continue;
 
@@ -970,7 +972,7 @@ bool homeSingleJoint(
   float eCompensationPerUnit
 ) {
   if (!useMin && !useMax) {
-    Serial.println(F("echo: homing skipped because endstop is disabled"));
+    G_CODE_SERIAL.println(F("echo: homing skipped because endstop is disabled"));
     stepCounter = lround(homeAssignedUnit * stepsPerUnit);
     return true;
   }
@@ -1072,7 +1074,7 @@ bool homeShoulder() {
     xMaxTriggered,
     SHOULDER_HOME_BACKOFF_DEG,
     SHOULDER_HOME_DEG,
-    -(float)GRIPPER_COMPENSATION_SIGN
+    0.0f
   );
 }
 
@@ -1090,7 +1092,7 @@ bool homeElbow() {
     yMaxTriggered,
     ELBOW_HOME_BACKOFF_DEG,
     ELBOW_HOME_DEG,
-    0.0f
+    -(float)GRIPPER_COMPENSATION_SIGN
   );
 }
 
@@ -1294,134 +1296,134 @@ void handleRawMoveM360(const String &line) {
 // ================================================================
 
 void reportPosition() {
-  Serial.print(F("X:"));
-  Serial.print(current.x, 3);
-  Serial.print(F(" Y:"));
-  Serial.print(current.y, 3);
-  Serial.print(F(" Z:"));
-  Serial.print(current.z, 3);
-  Serial.print(F(" E:"));
-  Serial.print(current.e, 3);
+  G_CODE_SERIAL.print(F("X:"));
+  G_CODE_SERIAL.print(current.x, 3);
+  G_CODE_SERIAL.print(F(" Y:"));
+  G_CODE_SERIAL.print(current.y, 3);
+  G_CODE_SERIAL.print(F(" Z:"));
+  G_CODE_SERIAL.print(current.z, 3);
+  G_CODE_SERIAL.print(F(" E:"));
+  G_CODE_SERIAL.print(current.e, 3);
 
-  Serial.print(F("  E_motor:"));
-  Serial.print(current.eMotorDeg, 3);
+  G_CODE_SERIAL.print(F("  E_motor:"));
+  G_CODE_SERIAL.print(current.eMotorDeg, 3);
 
-  Serial.print(F("  Joints theta:"));
-  Serial.print(current.shoulderDeg, 3);
-  Serial.print(F(" psi:"));
-  Serial.print(current.elbowDeg, 3);
+  G_CODE_SERIAL.print(F("  Joints theta:"));
+  G_CODE_SERIAL.print(current.shoulderDeg, 3);
+  G_CODE_SERIAL.print(F(" psi:"));
+  G_CODE_SERIAL.print(current.elbowDeg, 3);
 
-  Serial.print(F("  gripper_mode:"));
-  Serial.print(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
+  G_CODE_SERIAL.print(F("  gripper_mode:"));
+  G_CODE_SERIAL.print(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
 
-  Serial.print(F("  steps S:"));
-  Serial.print(shoulderSteps);
-  Serial.print(F(" P:"));
-  Serial.print(elbowSteps);
-  Serial.print(F(" Z:"));
-  Serial.print(zSteps);
-  Serial.print(F(" E:"));
-  Serial.println(eSteps);
+  G_CODE_SERIAL.print(F("  steps S:"));
+  G_CODE_SERIAL.print(shoulderSteps);
+  G_CODE_SERIAL.print(F(" P:"));
+  G_CODE_SERIAL.print(elbowSteps);
+  G_CODE_SERIAL.print(F(" Z:"));
+  G_CODE_SERIAL.print(zSteps);
+  G_CODE_SERIAL.print(F(" E:"));
+  G_CODE_SERIAL.println(eSteps);
 }
 
 void reportEndstops() {
-  Serial.println(F("Reporting endstop status"));
-  Serial.print(F("x_min: "));
-  Serial.println(xMinTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.println(F("Reporting endstop status"));
+  G_CODE_SERIAL.print(F("x_min: "));
+  G_CODE_SERIAL.println(xMinTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("x_max: "));
-  Serial.println(xMaxTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("x_max: "));
+  G_CODE_SERIAL.println(xMaxTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("y_min: "));
-  Serial.println(yMinTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("y_min: "));
+  G_CODE_SERIAL.println(yMinTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("y_max: "));
-  Serial.println(yMaxTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("y_max: "));
+  G_CODE_SERIAL.println(yMaxTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("z_min: "));
-  Serial.println(zMinTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("z_min: "));
+  G_CODE_SERIAL.println(zMinTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("z_max: "));
-  Serial.println(zMaxTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("z_max: "));
+  G_CODE_SERIAL.println(zMaxTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("e_min: "));
-  Serial.println(eMinTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("e_min: "));
+  G_CODE_SERIAL.println(eMinTriggered() ? F("TRIGGERED") : F("open"));
 
-  Serial.print(F("e_max: "));
-  Serial.println(eMaxTriggered() ? F("TRIGGERED") : F("open"));
+  G_CODE_SERIAL.print(F("e_max: "));
+  G_CODE_SERIAL.println(eMaxTriggered() ? F("TRIGGERED") : F("open"));
 }
 
 void reportSettings() {
-  Serial.println(F("SCARAnoi custom firmware settings"));
+  G_CODE_SERIAL.println(F("SCARAnoi custom firmware settings"));
 
-  Serial.print(F("Steps/unit: shoulder="));
-  Serial.print(SHOULDER_STEPS_PER_DEG, 4);
-  Serial.print(F(" steps/deg, elbow="));
-  Serial.print(ELBOW_STEPS_PER_DEG, 4);
-  Serial.print(F(" steps/deg, Z="));
-  Serial.print(Z_STEPS_PER_MM, 4);
-  Serial.print(F(" steps/mm, E="));
-  Serial.print(E_STEPS_PER_DEG, 4);
-  Serial.println(F(" steps/deg"));
+  G_CODE_SERIAL.print(F("Steps/unit: shoulder="));
+  G_CODE_SERIAL.print(SHOULDER_STEPS_PER_DEG, 4);
+  G_CODE_SERIAL.print(F(" steps/deg, elbow="));
+  G_CODE_SERIAL.print(ELBOW_STEPS_PER_DEG, 4);
+  G_CODE_SERIAL.print(F(" steps/deg, Z="));
+  G_CODE_SERIAL.print(Z_STEPS_PER_MM, 4);
+  G_CODE_SERIAL.print(F(" steps/mm, E="));
+  G_CODE_SERIAL.print(E_STEPS_PER_DEG, 4);
+  G_CODE_SERIAL.println(F(" steps/deg"));
 
-  Serial.print(F("Links: L1="));
-  Serial.print(LINK_1_MM, 3);
-  Serial.print(F(" mm, L2="));
-  Serial.print(LINK_2_MM, 3);
-  Serial.println(F(" mm"));
+  G_CODE_SERIAL.print(F("Links: L1="));
+  G_CODE_SERIAL.print(LINK_1_MM, 3);
+  G_CODE_SERIAL.print(F(" mm, L2="));
+  G_CODE_SERIAL.print(LINK_2_MM, 3);
+  G_CODE_SERIAL.println(F(" mm"));
 
-  Serial.print(F("Gripper mode: "));
-  Serial.println(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
+  G_CODE_SERIAL.print(F("Gripper mode: "));
+  G_CODE_SERIAL.println(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
 
-  Serial.print(F("Gripper compensation sign: "));
-  Serial.println(GRIPPER_COMPENSATION_SIGN);
+  G_CODE_SERIAL.print(F("Gripper compensation sign: "));
+  G_CODE_SERIAL.println(GRIPPER_COMPENSATION_SIGN);
 
-  Serial.print(F("Software limits: "));
-  Serial.println(SOFTWARE_LIMITS_ENABLED ? F("ON") : F("OFF"));
+  G_CODE_SERIAL.print(F("Software limits: "));
+  G_CODE_SERIAL.println(SOFTWARE_LIMITS_ENABLED ? F("ON") : F("OFF"));
 
-  Serial.print(F("X["));
-  Serial.print(X_MIN_MM);
-  Serial.print(F(", "));
-  Serial.print(X_MAX_MM);
-  Serial.print(F("] Y["));
-  Serial.print(Y_MIN_MM);
-  Serial.print(F(", "));
-  Serial.print(Y_MAX_MM);
-  Serial.print(F("] Z["));
-  Serial.print(Z_MIN_MM);
-  Serial.print(F(", "));
-  Serial.print(Z_MAX_MM);
-  Serial.print(F("] E["));
-  Serial.print(E_MIN_DEG);
-  Serial.print(F(", "));
-  Serial.print(E_MAX_DEG);
-  Serial.println(F("]"));
+  G_CODE_SERIAL.print(F("X["));
+  G_CODE_SERIAL.print(X_MIN_MM);
+  G_CODE_SERIAL.print(F(", "));
+  G_CODE_SERIAL.print(X_MAX_MM);
+  G_CODE_SERIAL.print(F("] Y["));
+  G_CODE_SERIAL.print(Y_MIN_MM);
+  G_CODE_SERIAL.print(F(", "));
+  G_CODE_SERIAL.print(Y_MAX_MM);
+  G_CODE_SERIAL.print(F("] Z["));
+  G_CODE_SERIAL.print(Z_MIN_MM);
+  G_CODE_SERIAL.print(F(", "));
+  G_CODE_SERIAL.print(Z_MAX_MM);
+  G_CODE_SERIAL.print(F("] E["));
+  G_CODE_SERIAL.print(E_MIN_DEG);
+  G_CODE_SERIAL.print(F(", "));
+  G_CODE_SERIAL.print(E_MAX_DEG);
+  G_CODE_SERIAL.println(F("]"));
 
-  Serial.print(F("Motor states: X="));
-  Serial.print(shoulderMotorEnabled ? F("ON") : F("OFF"));
-  Serial.print(F(" Y="));
-  Serial.print(elbowMotorEnabled ? F("ON") : F("OFF"));
-  Serial.print(F(" Z="));
-  Serial.print(zMotorEnabled ? F("ON") : F("OFF"));
-  Serial.print(F(" E="));
-  Serial.println(eMotorEnabled ? F("ON") : F("OFF"));
+  G_CODE_SERIAL.print(F("Motor states: X="));
+  G_CODE_SERIAL.print(shoulderMotorEnabled ? F("ON") : F("OFF"));
+  G_CODE_SERIAL.print(F(" Y="));
+  G_CODE_SERIAL.print(elbowMotorEnabled ? F("ON") : F("OFF"));
+  G_CODE_SERIAL.print(F(" Z="));
+  G_CODE_SERIAL.print(zMotorEnabled ? F("ON") : F("OFF"));
+  G_CODE_SERIAL.print(F(" E="));
+  G_CODE_SERIAL.println(eMotorEnabled ? F("ON") : F("OFF"));
 
-  Serial.print(F("Endstops enabled: Xmin="));
-  Serial.print(USE_X_MIN_ENDSTOP);
-  Serial.print(F(" Xmax="));
-  Serial.print(USE_X_MAX_ENDSTOP);
-  Serial.print(F(" Ymin="));
-  Serial.print(USE_Y_MIN_ENDSTOP);
-  Serial.print(F(" Ymax="));
-  Serial.print(USE_Y_MAX_ENDSTOP);
-  Serial.print(F(" Zmin="));
-  Serial.print(USE_Z_MIN_ENDSTOP);
-  Serial.print(F(" Zmax="));
-  Serial.print(USE_Z_MAX_ENDSTOP);
-  Serial.print(F(" Emin="));
-  Serial.print(USE_E_MIN_ENDSTOP);
-  Serial.print(F(" Emax="));
-  Serial.println(USE_E_MAX_ENDSTOP);
+  G_CODE_SERIAL.print(F("Endstops enabled: Xmin="));
+  G_CODE_SERIAL.print(USE_X_MIN_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Xmax="));
+  G_CODE_SERIAL.print(USE_X_MAX_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Ymin="));
+  G_CODE_SERIAL.print(USE_Y_MIN_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Ymax="));
+  G_CODE_SERIAL.print(USE_Y_MAX_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Zmin="));
+  G_CODE_SERIAL.print(USE_Z_MIN_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Zmax="));
+  G_CODE_SERIAL.print(USE_Z_MAX_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Emin="));
+  G_CODE_SERIAL.print(USE_E_MIN_ENDSTOP);
+  G_CODE_SERIAL.print(F(" Emax="));
+  G_CODE_SERIAL.println(USE_E_MAX_ENDSTOP);
 }
 
 void handleM92(const String &line) {
@@ -1464,8 +1466,8 @@ void handleM280(const String &line) {
 
   gripperServo.write(angle);
 
-  Serial.print(F("echo: servo P0 set to "));
-  Serial.println(angle);
+  G_CODE_SERIAL.print(F("echo: servo P0 set to "));
+  G_CODE_SERIAL.println(angle);
 }
 
 void handleM281(const String &line) {
@@ -1475,10 +1477,10 @@ void handleM281(const String &line) {
   SERVO_OPEN_ANGLE = constrain(SERVO_OPEN_ANGLE, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);
   SERVO_CLOSE_ANGLE = constrain(SERVO_CLOSE_ANGLE, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);
 
-  Serial.print(F("echo: gripper open="));
-  Serial.print(SERVO_OPEN_ANGLE);
-  Serial.print(F(" close="));
-  Serial.println(SERVO_CLOSE_ANGLE);
+  G_CODE_SERIAL.print(F("echo: gripper open="));
+  G_CODE_SERIAL.print(SERVO_OPEN_ANGLE);
+  G_CODE_SERIAL.print(F(" close="));
+  G_CODE_SERIAL.println(SERVO_CLOSE_ANGLE);
 }
 
 void handleM282(const String &line) {
@@ -1493,7 +1495,7 @@ void handleM282(const String &line) {
     gripperAttached = false;
   }
 
-  Serial.println(F("echo: servo P0 detached"));
+  G_CODE_SERIAL.println(F("echo: servo P0 detached"));
 }
 
 void handleM361(const String &line) {
@@ -1511,8 +1513,8 @@ void handleM361(const String &line) {
     current.e = motorToLogicalE(current.eMotorDeg, current.shoulderDeg, current.elbowDeg);
   }
 
-  Serial.print(F("echo: gripper mode="));
-  Serial.println(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
+  G_CODE_SERIAL.print(F("echo: gripper mode="));
+  G_CODE_SERIAL.println(GRIPPER_MODE == GRIPPER_MODE_TRACKING ? F("tracking") : F("independent"));
 }
 
 void handleG92(const String &line) {
@@ -1664,8 +1666,8 @@ void handleCommand(String rawLine) {
   if (m == 211) {
     int s = (int)getParam(line, 'S', SOFTWARE_LIMITS_ENABLED ? 1 : 0);
     SOFTWARE_LIMITS_ENABLED = (s != 0);
-    Serial.print(F("echo: software endstops "));
-    Serial.println(SOFTWARE_LIMITS_ENABLED ? F("ON") : F("OFF"));
+    G_CODE_SERIAL.print(F("echo: software endstops "));
+    G_CODE_SERIAL.println(SOFTWARE_LIMITS_ENABLED ? F("ON") : F("OFF"));
     printOk();
     return;
   }
@@ -1713,13 +1715,13 @@ void handleCommand(String rawLine) {
 
   if (m == 999) {
     emergencyStopped = false;
-    Serial.println(F("echo: emergency stop cleared"));
+    G_CODE_SERIAL.println(F("echo: emergency stop cleared"));
     printOk();
     return;
   }
 
-  Serial.print(F("error: unsupported command: "));
-  Serial.println(line);
+  G_CODE_SERIAL.print(F("error: unsupported command: "));
+  G_CODE_SERIAL.println(line);
 }
 
 // ================================================================
@@ -1763,7 +1765,7 @@ void setupPins() {
 }
 
 void setup() {
-  Serial.begin(BAUDRATE);
+  G_CODE_SERIAL.begin(BAUDRATE);
   setupPins();
 
   current.shoulderDeg = SHOULDER_HOME_DEG;
@@ -1774,15 +1776,15 @@ void setup() {
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
   updateStepCountersFromPosition();
 
-  Serial.println(F("SCARAnoi custom RAMPS firmware ready"));
-  Serial.println(F("echo: send M503 for settings, M119 for endstops, M114 for position"));
-  Serial.println(F("echo: M361 S0 independent gripper mode, M361 S1 tracking gripper mode"));
+  G_CODE_SERIAL.println(F("SCARAnoi custom RAMPS firmware ready"));
+  G_CODE_SERIAL.println(F("echo: send M503 for settings, M119 for endstops, M114 for position"));
+  G_CODE_SERIAL.println(F("echo: M361 S0 independent gripper mode, M361 S1 tracking gripper mode"));
   printOk();
 }
 
 void loop() {
-  while (Serial.available() > 0) {
-    char c = (char)Serial.read();
+  while (G_CODE_SERIAL.available() > 0) {
+    char c = (char)G_CODE_SERIAL.read();
 
     if (c == '\r') continue;
 
