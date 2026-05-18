@@ -2,6 +2,10 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
+// Set to true only while debugging the camera stream.
+// Keeping this false avoids slow Serial prints on every video frame.
+#define STREAM_DEBUG false
+
 // ================================================================
 // ========================= NETWORK MODE ==========================
 // ================================================================
@@ -161,29 +165,37 @@ int waitForSingleArduinoReply(String &response) {
   return REPLY_TIMEOUT;
 }
 
-// Write a full binary buffer to a WiFiClient, retrying until all bytes are sent
-// or until no progress is made for stallTimeoutMs.
+// Write a full binary buffer to a WiFiClient.
+// This version avoids Serial spam and sends data in TCP-friendly chunks.
 bool writeClientFully(
   WiFiClient &client,
   const uint8_t *buf,
   size_t len,
   const char *label,
-  unsigned long stallTimeoutMs = 5000
+  unsigned long stallTimeoutMs = 2000
 ) {
   size_t sent = 0;
   unsigned long lastProgress = millis();
 
   while (sent < len && client.connected()) {
-    size_t written = client.write(buf + sent, len - sent);
+    size_t remaining = len - sent;
+
+    // 1460 bytes is close to one TCP payload on Wi-Fi.
+    // It is faster than tiny chunks, but safer than one huge write.
+    size_t chunkSize = remaining > 1460 ? 1460 : remaining;
+
+    size_t written = client.write(buf + sent, chunkSize);
 
     if (written > 0) {
       sent += written;
       lastProgress = millis();
     } else {
-      delay(5);
+      delay(1);
 
       if (millis() - lastProgress > stallTimeoutMs) {
-        Serial.printf("[%s] stalled at %u/%u bytes\n", label, sent, len);
+        if (STREAM_DEBUG) {
+          Serial.printf("[%s] stalled at %u/%u bytes\n", label, sent, len);
+        }
         return false;
       }
     }
@@ -191,13 +203,15 @@ bool writeClientFully(
     yield();
   }
 
-  if (sent != len) {
-    Serial.printf("[%s] disconnected at %u/%u bytes\n", label, sent, len);
-    return false;
+  if (STREAM_DEBUG) {
+    if (sent == len) {
+      Serial.printf("[%s] sent %u/%u bytes\n", label, sent, len);
+    } else {
+      Serial.printf("[%s] disconnected at %u/%u bytes\n", label, sent, len);
+    }
   }
 
-  Serial.printf("[%s] sent %u/%u bytes\n", label, sent, len);
-  return true;
+  return sent == len;
 }
 
 // ================================================================
@@ -214,7 +228,7 @@ void handleStatus() {
 
   IPAddress ip = USE_SOFT_AP ? WiFi.softAPIP() : WiFi.localIP();
 
-  String body = "SCARAnoi ESP32-CAM bridge — old stream style test\n";
+  String body = "SCARAnoi ESP32-CAM bridge\n";
   body += "Mode: ";
   body += USE_SOFT_AP ? "SoftAP\n" : "Station\n";
   body += "IP: " + ip.toString() + "\n";
@@ -325,7 +339,7 @@ void handleSend() {
 // ================================================================
 
 void handleCapture() {
-  Serial.println("[CAPTURE] Requesting single frame...");
+  if (STREAM_DEBUG) Serial.println("[CAPTURE] Requesting single frame...");
   camera_fb_t *fb = esp_camera_fb_get();
 
   if (!fb) {
@@ -335,7 +349,9 @@ void handleCapture() {
     return;
   }
 
-  Serial.printf("[CAPTURE] Got frame, size=%u bytes\n", fb->len);
+  if (STREAM_DEBUG) {
+    Serial.printf("[CAPTURE] Got frame, size=%u bytes\n", fb->len);
+  }
 
   WiFiClient client = controlServer.client();
   client.setNoDelay(true);
@@ -365,8 +381,10 @@ void handleStreamClient(WiFiClient client) {
   String request = client.readStringUntil('\r');
   client.readStringUntil('\n');
 
-  Serial.print("[STREAM] Request: ");
-  Serial.println(request);
+  if (STREAM_DEBUG) {
+    Serial.print("[STREAM] Request: ");
+    Serial.println(request);
+  }
 
   if (request.indexOf("GET /stream") < 0) {
     client.println("HTTP/1.1 404 Not Found");
@@ -388,16 +406,18 @@ void handleStreamClient(WiFiClient client) {
   unsigned long frameCount = 0;
 
   while (client.connected()) {
-    Serial.println("[STREAM] Requesting frame...");
     camera_fb_t *fb = esp_camera_fb_get();
 
     if (!fb) {
-      Serial.println("[STREAM] Camera capture failed during stream");
+      if (STREAM_DEBUG) Serial.println("[STREAM] Camera capture failed during stream");
       break;
     }
 
     frameCount++;
-    Serial.printf("[STREAM] Got frame %lu, size=%u bytes\n", frameCount, fb->len);
+
+    if (STREAM_DEBUG && frameCount % 30 == 1) {
+      Serial.printf("[STREAM] Frame %lu, size=%u bytes\n", frameCount, fb->len);
+    }
 
     client.println("--frame");
     client.println("Content-Type: image/jpeg");
@@ -414,11 +434,15 @@ void handleStreamClient(WiFiClient client) {
       break;
     }
 
-    delay(30);
+    // Small delay gives Wi-Fi/control server time without killing FPS.
+    delay(5);
   }
 
   client.stop();
-  Serial.printf("[STREAM] Client disconnected after %lu frame(s)\n", frameCount);
+
+  if (STREAM_DEBUG) {
+    Serial.printf("[STREAM] Client disconnected after %lu frame(s)\n", frameCount);
+  }
 }
 
 void streamTask(void *parameter) {
@@ -426,7 +450,7 @@ void streamTask(void *parameter) {
     WiFiClient streamClient = streamServer.available();
 
     if (streamClient) {
-      Serial.println("[STREAM] Client connected");
+      if (STREAM_DEBUG) Serial.println("[STREAM] Client connected");
       handleStreamClient(streamClient);
     }
 
@@ -509,7 +533,7 @@ void setup() {
   delay(1000);
 
   Serial.println();
-  Serial.println("Booting SCARAnoi ESP32-CAM bridge — old stream style test...");
+  Serial.println("Booting SCARAnoi ESP32-CAM bridge...");
 
   arduinoSerial.begin(ARDUINO_BAUD, SERIAL_8N1, ARDUINO_RX_PIN, ARDUINO_TX_PIN);
   Serial.println("Arduino serial bridge started");
