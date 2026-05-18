@@ -1,0 +1,74 @@
+{
+  "home": {
+    "command": "G28",
+    "description": "Auto home. Sends the arm to its home position."
+  },
+  "jog-y-positive": {
+    "command": "G91\nG1 Y5 F900\nG90",
+    "description": "Moves the end-effector one selected step in the positive Y direction."
+  },
+  "jog-x-negative": {
+    "command": "G91\nG1 X-5 F900\nG90",
+    "description": "Moves the end-effector one selected step in the negative X direction."
+  },
+  "jog-x-positive": {
+    "command": "G91\nG1 X5 F900\nG90",
+    "description": "Moves the end-effector one selected step in the positive X direction."
+  },
+  "jog-y-negative": {
+    "command": "G91\nG1 Y-5 F900\nG90",
+    "description": "Moves the end-effector one selected step in the negative Y direction."
+  },
+  "move-up": {
+    "command": "G91\nG1 Z5 F900\nG90",
+    "description": "Moves the lift upward along Z by the selected linear step."
+  },
+  "move-down": {
+    "command": "G91\nG1 Z-5 F900\nG90",
+    "description": "Moves the lift downward along Z by the selected linear step."
+  },
+  "wrist-left": {
+    "command": "G91\nG1 E-5 F900\nG90",
+    "description": "Rotates the wrist in the negative E direction by the selected wrist step."
+  },
+  "wrist-right": {
+    "command": "G91\nG1 E5 F900\nG90",
+    "description": "Rotates the wrist in the positive E direction by the selected wrist step."
+  },
+  "open-gripper": {
+    "command": "M280 P0 S[open angle]",
+    "description": "Moves servo P0 to the open angle entered in the gripper panel."
+  },
+  "close-gripper": {
+    "command": "M280 P0 S[close angle]",
+    "description": "Moves servo P0 to the close angle entered in the gripper panel."
+  },
+  "servo-bounds": {
+    "command": "M281 O[open] C[close]",
+    "description": "Sets the open and close angles for the gripper servo in RAM. O = open angle, C = close angle."
+  },
+  "detach-servo": {
+    "command": "M282 P0",
+    "description": "Detaches servo P0 by cutting the PWM signal. Useful to avoid idle buzzing or heating."
+  },
+  "get-position": {
+    "command": "M114",
+    "description": "Reports the current X, Y, Z, and E coordinates."
+  },
+  "check-endstops": {
+    "command": "M119",
+    "description": "Reports the current state of the limit switches as open or TRIGGERED."
+  },
+  "enable-motors": {
+    "command": "M17",
+    "description": "Enables the stepper motors and locks them in place."
+  },
+  "disable-motors": {
+    "command": "M18",
+    "description": "Disables the stepper motors so the arm can be moved manually."
+  },
+  "emergency-stop": {
+    "command": "M112",
+    "description": "Emergency stop. Hard halt that shuts down the board and requires a reset."
+  }
+}
