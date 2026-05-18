@@ -75,7 +75,7 @@ function inferHanoiTargetPeg(state) {
 /**
  * Returns the ordered list of moves needed to solve Tower of Hanoi.
  * Disk convention follows detectDisque.py: 1 = smallest, 5 = largest.
- * Each move: { disk, from, to, diskLevel }, where diskLevel is bottom-first.
+ * Each move: { disk, from, to, diskLevel, toLevel }, where levels are bottom-first.
  */
 function hanoiSolve(state, target = inferHanoiTargetPeg(state)) {
   const check = validateHanoiState(state);
@@ -110,7 +110,8 @@ function hanoiSolve(state, target = inferHanoiTargetPeg(state)) {
     const diskLevel = work[currentPeg].indexOf(largest) + 1;
     work[currentPeg].splice(work[currentPeg].indexOf(largest), 1);
     work[targetPeg].push(largest);
-    moves.push({ disk: largest, from: currentPeg, to: targetPeg, diskLevel });
+    const toLevel = work[targetPeg].length;
+    moves.push({ disk: largest, from: currentPeg, to: targetPeg, diskLevel, toLevel });
 
     moveTopDisks(largest - 1, targetPeg);
   }
@@ -127,73 +128,91 @@ function hanoiSolve(state, target = inferHanoiTargetPeg(state)) {
  * Build G-code steps for a single disk move without touching the DOM.
  * Returns { steps: [{label, gcode}], error: string|null }
  */
-function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel) {
-  const zClear = ikGetZClearance();
-  if (zClear === null) return { steps: [], error: '"height up (clearance)" Z not saved.' };
+function firmwarePegCommand(pegIdx) {
+  const idx = Number(pegIdx);
+  const explicit = CONFIG.hanoi?.firmwareCommands?.pegCommandsByIndex;
+  if (Array.isArray(explicit) && explicit[idx]) return explicit[idx];
+  return `PEG${idx}`;
+}
 
-  const fromXY = ikGetPegXY(fromPeg);
-  const toXY   = ikGetPegXY(toPeg);
-  if (!fromXY) return { steps: [], error: `Missing XY for Peg ${fromPeg}.` };
-  if (!toXY)   return { steps: [], error: `Missing XY for Peg ${toPeg}.` };
-  if (isXYOutsideWorkspace(toXY.x, toXY.y)) return { steps: [], error: `Peg ${toPeg} outside workspace.` };
+function firmwareLayerCommand(level) {
+  const prefix = CONFIG.hanoi?.firmwareCommands?.layerPrefix || "LAYER";
+  const n = Math.max(1, Math.min(5, Number(level) || 1));
+  return `${prefix}${n}`;
+}
 
-  const dropZ = ikGetDropZ();
-  if (dropZ === null) return { steps: [], error: '"release / top-of-peg" Z not saved.' };
+function firmwareSafeHeightCommand() {
+  return CONFIG.hanoi?.firmwareCommands?.up || "UP";
+}
 
-  const gripZ = ikGetGripZ(diskLevel);
-  if (gripZ === null) return { steps: [], error: '"platform base" Z not saved.' };
+function firmwareOpenCommand() {
+  return CONFIG.hanoi?.firmwareCommands?.open || "OPEN";
+}
 
-  const gripAngle    = getGripAngleForDisk(diskId);
-  const releaseAngle = getReleaseAngleForDisk(diskId);
-  if (!gripAngle)    return { steps: [], error: `Grip angle not saved for Disk ${diskId}.` };
-  if (!releaseAngle) return { steps: [], error: `Release angle not saved for Disk ${diskId}.` };
+function firmwareCloseCommand() {
+  return CONFIG.hanoi?.firmwareCommands?.close || "CLOSE";
+}
 
-  const fromIK = ikScaraAngles(fromXY.x, fromXY.y);
-  const toIK   = ikScaraAngles(toXY.x,   toXY.y);
+function firmwareStartCommand() {
+  return CONFIG.hanoi?.firmwareCommands?.start || "START";
+}
 
-  const liftZ  = dropZ + zClear;
-  const feedXY = unitsPerSecondToFeedrate(xySpeedSlider.value);
-  const feedZ  = unitsPerSecondToFeedrate(zSpeedSlider.value);
+function uiPegLabel(pegIdx) {
+  return `Peg ${Number(pegIdx)}`;
+}
 
-  // Step 0 — move to source peg via G1 Cartesian (firmware does IK internally)
-  // Always include this so the arm is guaranteed to be over fromPeg before descending
-  const curX = hasKnownPosition() ? simulatedPosition.x : null;
-  const curY = hasKnownPosition() ? simulatedPosition.y : null;
-  const alreadyAtFrom = curX !== null && Math.hypot(curX - fromXY.x, curY - fromXY.y) < 1.0;
-  const s0 = alreadyAtFrom ? null
-    : `G90\nG1 X${formatNumber(fromXY.x)} Y${formatNumber(fromXY.y)} Z${formatNumber(liftZ)} F${feedXY}`;
+/**
+ * Build firmware-macro steps for a single disk transfer.
+ * The peg coordinates, Z layers, safe height, and servo angles are now owned by
+ * the Arduino firmware through custom text commands: PEG0..PEG2, LAYER1..LAYER5,
+ * UP, OPEN, and CLOSE. The browser only decides the logical Hanoi sequence.
+ */
+function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
+  if (fromPeg === toPeg) {
+    return { steps: [], error: "Source and target peg are the same." };
+  }
 
-  // Joint deltas from fromPeg to toPeg — arm is guaranteed at fromPeg after s0/grip
-  const sDelta = ikShortestDelta(fromIK.shoulderDeg, toIK.shoulderDeg);
-  const eDelta = ikShortestDelta(fromIK.elbowDeg,    toIK.elbowDeg);
+  if (diskLevel < 1 || diskLevel > 5) {
+    return { steps: [], error: `Invalid source layer ${diskLevel}. Expected 1..5.` };
+  }
 
-  // Step 1 — descend, grip, lift
-  const s1 = [
-    `G90\nG1 Z${formatNumber(gripZ)} F${feedZ}`,
-    `M280 P0 S${formatNumber(gripAngle)}`,
-    `G90\nG1 Z${formatNumber(liftZ)} F${feedZ}`
-  ].join("\n");
+  if (toLevel < 1 || toLevel > 5) {
+    return { steps: [], error: `Invalid target layer ${toLevel}. Expected 1..5.` };
+  }
 
-  // Step 2 — rotate joints to target peg
-  const s2parts = [];
-  if (Math.abs(sDelta) > 0.01) s2parts.push(`X${formatNumber(sDelta)}`);
-  if (Math.abs(eDelta) > 0.01) s2parts.push(`Y${formatNumber(eDelta)}`);
-  const s2 = s2parts.length ? `M360 ${s2parts.join(" ")} F${feedXY}` : null;
+  const fromCmd = firmwarePegCommand(fromPeg);
+  const toCmd = firmwarePegCommand(toPeg);
+  const sourceLayerCmd = firmwareLayerCommand(diskLevel);
+  const targetLayerCmd = firmwareLayerCommand(toLevel);
+  const upCmd = firmwareSafeHeightCommand();
+  const openCmd = firmwareOpenCommand();
+  const closeCmd = firmwareCloseCommand();
 
-  // Step 3 — lower & release (no wrist correction — firmware handles orientation)
-  const s3 = [
-    `G90\nG1 Z${formatNumber(dropZ)} F${feedZ}`,
-    `M280 P0 S${formatNumber(releaseAngle)}`
-  ].join("\n");
+  const steps = [
+    {
+      label: `Move above ${uiPegLabel(fromPeg)}`,
+      gcode: `${upCmd}
+${fromCmd}`
+    },
+    {
+      label: `Pick Disk ${diskId} from ${uiPegLabel(fromPeg)} layer ${diskLevel}`,
+      gcode: `${sourceLayerCmd}
+${closeCmd}
+${upCmd}`
+    },
+    {
+      label: `Move to ${uiPegLabel(toPeg)}`,
+      gcode: `${toCmd}`
+    },
+    {
+      label: `Place Disk ${diskId} on ${uiPegLabel(toPeg)} layer ${toLevel}`,
+      gcode: `${targetLayerCmd}
+${openCmd}
+${upCmd}`
+    }
+  ];
 
-  const allSteps = [
-    s0 ? { label: `Position over Peg ${fromPeg}`, gcode: s0 } : null,
-    { label: "Descend, Grip & Lift", gcode: s1 },
-    s2 ? { label: "Rotate joints to target", gcode: s2 } : null,
-    { label: `Lower & Release on Peg ${toPeg}`, gcode: s3 }
-  ].filter(Boolean);
-
-  return { steps: allSteps, error: null };
+  return { steps, error: null };
 }
 
 // ─────────────────────────────────────────────
@@ -458,7 +477,7 @@ async function hanoiExecuteCurrentStep() {
   if (!move || move.error) return;
 
   const step = move.steps[hanoiCurrentStep];
-  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} Peg ${move.from}→${move.to}`;
+  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} ${uiPegLabel(move.from)}→${uiPegLabel(move.to)}`;
 
   clearPreviewPosition();
   appendLog(`; [Hanoi] ${moveLabel} — ${step.label}`);
@@ -491,38 +510,32 @@ function hanoiBuild(state) {
   const validity = validateHanoiState(state, expected);
   if (!validity.ok) return validity.error;
 
-  // Validate prerequisites
-  const zClear = ikGetZClearance();
-  const dropZ  = ikGetDropZ();
-  const baseZ  = ikGetPlatformBaseZ();
-  if (zClear === null) return '"height up (clearance)" Z not saved.';
-  if (dropZ  === null) return '"release / top-of-peg" Z not saved.';
-  if (baseZ  === null) return '"platform base" Z not saved.';
-  for (let p = 0; p < 3; p++) {
-    if (!ikGetPegXY(p)) return `Missing X or Y coordinates for Peg ${p}.`;
-  }
-
-  // Collect all disks present
-  const diskIds = new Set();
-  state.forEach(peg => peg.forEach(d => diskIds.add(d)));
-  for (const d of diskIds) {
-    if (!getGripAngleForDisk(d)) return `Grip angle not saved for Disk ${d}.`;
-    if (!getReleaseAngleForDisk(d)) return `Release angle not saved for Disk ${d}.`;
-  }
+  // Movement calibration now lives inside the Arduino firmware.
+  // The browser only needs to validate the logical Hanoi state.
 
   const targetPeg = inferHanoiTargetPeg(state);
   const rawMoves = hanoiSolve(state, targetPeg);
   if (rawMoves.length === 0) return "Nothing to solve — the puzzle is already complete or empty.";
 
-  hanoiMoveQueue = rawMoves.map(m => {
-    const result = buildMoveGcode(m.disk, m.from, m.to, m.diskLevel);
+  hanoiMoveQueue = rawMoves.map((m, idx) => {
+    const result = buildMoveGcode(m.disk, m.from, m.to, m.diskLevel, m.toLevel);
+
+    // The interface calls START only once, before the first Hanoi movement.
+    // The actual start pose/peg is defined by the firmware.
+    if (idx === 0 && !result.error) {
+      result.steps.unshift({
+        label: "Initialize arm from home",
+        gcode: firmwareStartCommand()
+      });
+    }
+
     return { ...m, steps: result.steps, error: result.error };
   });
 
   hanoiCurrentMove = 0;
   hanoiCurrentStep = 0;
   hanoiLiveState   = state.map(peg => [...peg]);
-  appendLog(`; Hanoi target peg: ${targetPeg}.`);
+  appendLog(`; Hanoi target peg: ${uiPegLabel(targetPeg)}.`);
   return null;
 }
 
@@ -535,7 +548,7 @@ async function hanoiExecuteCurrentStep() {
   if (!move || move.error) return false;
 
   const step = move.steps[hanoiCurrentStep];
-  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} Peg ${move.from}→${move.to}`;
+  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} ${uiPegLabel(move.from)}→${uiPegLabel(move.to)}`;
 
   clearPreviewPosition();
   appendLog(`; [Hanoi] ${moveLabel} — ${step.label}`);
@@ -589,12 +602,17 @@ async function hanoiQueueNextSubStep() {
   }
 
   const step = move.steps[hanoiCurrentStep];
-  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} Peg ${move.from}→${move.to}`;
+  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} ${uiPegLabel(move.from)}→${uiPegLabel(move.to)}`;
   const bannerLabel = `${moveLabel} — ${step.label} (${hanoiCurrentStep + 1}/${move.steps.length})`;
 
-  if (step.label.includes("Rotate") && typeof ikGetPegXY === "function") {
-    const toXY = ikGetPegXY(move.to);
-    if (toXY) setPreviewPosition(toXY.x, toXY.y);
+  if (typeof ikGetPegXY === "function") {
+    if (step.label.startsWith("Move above")) {
+      const fromXY = ikGetPegXY(move.from);
+      if (fromXY) setPreviewPosition(fromXY.x, fromXY.y);
+    } else if (step.label.startsWith("Move to")) {
+      const toXY = ikGetPegXY(move.to);
+      if (toXY) setPreviewPosition(toXY.x, toXY.y);
+    }
   }
 
   renderHanoiQueue();
@@ -700,7 +718,7 @@ function renderHanoiQueue() {
       <div class="hanoi-move-header">
         <span class="hanoi-move-num">${mi + 1}</span>
         <span class="hanoi-disk-badge" style="background:${diskColor}">Disk ${move.disk}</span>
-        <span class="hanoi-move-route">Peg ${move.from} → Peg ${move.to}</span>
+        <span class="hanoi-move-route">${uiPegLabel(move.from)} → ${uiPegLabel(move.to)}</span>
         ${isPast ? `<span class="hanoi-done-badge">✓</span>` : ""}
         ${move.error ? `<span class="hanoi-err-badge">⚠ ${escapeHtml(move.error)}</span>` : ""}
       </div>
@@ -817,7 +835,7 @@ function setupHanoiSolver() {
           const inp = document.getElementById(`hanoiPeg${p}Input`);
           if (inp) inp.value = state[p].join(" ");
         }
-        appendLog(`; Hanoi detect OK: ${state.map((s,i)=>`Peg${i}=[${s}]`).join(" ")}`);
+        appendLog(`; Hanoi detect OK: ${state.map((s,i)=>`Peg${i + 1}=[${s}]`).join(" ")}`);
       }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "Detect only"; }

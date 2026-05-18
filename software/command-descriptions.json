@@ -36,12 +36,12 @@
     "description": "Rotates the wrist in the positive E direction by the selected wrist step."
   },
   "open-gripper": {
-    "command": "M280 P0 S[open angle]",
-    "description": "Moves servo P0 to the open angle entered in the gripper panel."
+    "command": "OPEN",
+    "description": "Runs the firmware OPEN macro. The servo angle is defined in firmware.ino as ANGLE_OPEN."
   },
   "close-gripper": {
-    "command": "M280 P0 S[close angle]",
-    "description": "Moves servo P0 to the close angle entered in the gripper panel."
+    "command": "CLOSE",
+    "description": "Runs the firmware CLOSE macro. The servo angle is defined in firmware.ino as ANGLE_CLOSE."
   },
   "servo-bounds": {
     "command": "M281 O[open] C[close]",
@@ -70,5 +70,45 @@
   "emergency-stop": {
     "command": "M112",
     "description": "Emergency stop. Hard halt that shuts down the board and requires a reset."
+  },
+  "firmware-start": {
+    "command": "START",
+    "description": "Runs the firmware START macro: moves to the configured start pose, sets the logical position/orientation mode, then moves above PEG1."
+  },
+  "firmware-up": {
+    "command": "UP",
+    "description": "Runs the firmware UP macro and moves Z to the configured safe height."
+  },
+  "firmware-peg1": {
+    "command": "PEG1",
+    "description": "Moves the arm above firmware peg position PEG1."
+  },
+  "firmware-peg2": {
+    "command": "PEG2",
+    "description": "Moves the arm above firmware peg position PEG2."
+  },
+  "firmware-peg3": {
+    "command": "PEG3",
+    "description": "Moves the arm above firmware peg position PEG3."
+  },
+  "firmware-layer1": {
+    "command": "LAYER1",
+    "description": "Moves Z to firmware layer height LAYER1."
+  },
+  "firmware-layer2": {
+    "command": "LAYER2",
+    "description": "Moves Z to firmware layer height LAYER2."
+  },
+  "firmware-layer3": {
+    "command": "LAYER3",
+    "description": "Moves Z to firmware layer height LAYER3."
+  },
+  "firmware-layer4": {
+    "command": "LAYER4",
+    "description": "Moves Z to firmware layer height LAYER4."
+  },
+  "firmware-layer5": {
+    "command": "LAYER5",
+    "description": "Moves Z to firmware layer height LAYER5."
   }
 }

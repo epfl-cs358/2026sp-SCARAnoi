@@ -237,6 +237,22 @@
               <button class="btn btn-secondary" data-action="disable-motors" data-command="disable-motors" type="button">Disable motors</button>
             </div>
 
+            <div class="firmware-shortcuts-box">
+              <div class="mini-title">Firmware shortcuts</div>
+              <div class="firmware-shortcuts-grid">
+                <button class="btn btn-primary" data-action="firmware-start" type="button">START</button>
+                <button class="btn btn-secondary" data-action="firmware-up" type="button">UP</button>
+                <button class="btn btn-secondary" data-action="firmware-peg0" type="button">PEG0</button>
+                <button class="btn btn-secondary" data-action="firmware-peg1" type="button">PEG1</button>
+                <button class="btn btn-secondary" data-action="firmware-peg2" type="button">PEG2</button>
+                <button class="btn btn-secondary" data-action="firmware-layer1" type="button">LAYER1</button>
+                <button class="btn btn-secondary" data-action="firmware-layer2" type="button">LAYER2</button>
+                <button class="btn btn-secondary" data-action="firmware-layer3" type="button">LAYER3</button>
+                <button class="btn btn-secondary" data-action="firmware-layer4" type="button">LAYER4</button>
+                <button class="btn btn-secondary" data-action="firmware-layer5" type="button">LAYER5</button>
+              </div>
+            </div>
+
             <div class="servo-bounds-grid">
               <div class="field-block"><label class="field-label" for="servoMin">Servo open °</label><input id="servoMin" type="number" min="0" max="180" value="20" /></div>
               <div class="field-block"><label class="field-label" for="servoMax">Servo close °</label><input id="servoMax" type="number" min="0" max="180" value="90" /></div>
@@ -289,43 +305,6 @@
             <button class="btn btn-primary" id="ikComputeBtn" type="button">Compute transfer</button>
             <div id="ikResult" class="ik-result"></div>
             <div id="ikActions" class="ik-actions" style="display:none;"></div>
-          </div>
-        </section>
-      </details>
-
-      <details class="advanced-drawer pro-advanced-drawer">
-        <summary>Calibration data used by the solver</summary>
-        <section class="card saved-data-card span-2">
-          <div class="card-header compact-header">
-            <div><div class="eyebrow">Calibration</div><h2>Saved axis values and gripper angles</h2></div>
-            <button class="btn btn-secondary btn-small" id="clearSavedDataBtn" type="button">Clear all</button>
-          </div>
-          <div class="card-body saved-data-body">
-            <div class="sd-section-title">Saved precise moves</div>
-            <div class="sd-moves-save-box">
-              <div class="sd-move-name-row"><input id="sdMoveName" type="text" placeholder="Move name…" /><button class="btn btn-secondary btn-xsmall" id="sdCaptureCurrent" type="button">↓ Current pos</button></div>
-              <div class="sd-move-fields">
-                <div class="field-block"><label class="field-label">X mm</label><input id="sdMoveX" type="number" step="0.1" placeholder="—" /></div>
-                <div class="field-block"><label class="field-label">Y mm</label><input id="sdMoveY" type="number" step="0.1" placeholder="—" /></div>
-                <div class="field-block"><label class="field-label">Z mm</label><input id="sdMoveZ" type="number" step="0.1" placeholder="—" /></div>
-                <div class="field-block"><label class="field-label">E °</label><input id="sdMoveE" type="number" step="0.1" placeholder="—" /></div>
-                <div class="field-block"><label class="field-label">Servo °</label><input id="sdMoveServo" type="number" min="0" max="180" step="1" placeholder="—" /></div>
-              </div>
-              <button class="btn btn-primary btn-small" id="sdSaveMove" type="button">Save move</button>
-            </div>
-            <div class="sd-moves-list" id="sdMovesList"></div>
-
-            <div class="sd-section-title sd-section-title--2">Per-axis values</div>
-            <div class="sd-axis-grid sd-axis-grid--4">
-              <div class="sd-axis-block"><div class="sd-axis-header"><span class="sd-axis-badge">X</span><span class="sd-axis-label">Peg X positions</span></div><div class="sd-rows" id="sdRowsX"></div><div class="sd-add-row"><input class="sd-new-name" type="text" placeholder="Name…" data-axis="x" /><input class="sd-new-val" type="number" step="0.1" placeholder="mm" data-axis="x" /><button class="btn btn-secondary btn-xsmall sd-capture-new" data-axis="x" type="button">↓</button><button class="btn btn-primary btn-xsmall sd-add-entry" data-axis="x" type="button">+ Add</button></div></div>
-              <div class="sd-axis-block"><div class="sd-axis-header"><span class="sd-axis-badge">Y</span><span class="sd-axis-label">Shared peg Y</span></div><div class="sd-rows" id="sdRowsY"></div><div class="sd-add-row"><input class="sd-new-name" type="text" placeholder="Name…" data-axis="y" /><input class="sd-new-val" type="number" step="0.1" placeholder="mm" data-axis="y" /><button class="btn btn-secondary btn-xsmall sd-capture-new" data-axis="y" type="button">↓</button><button class="btn btn-primary btn-xsmall sd-add-entry" data-axis="y" type="button">+ Add</button></div></div>
-              <div class="sd-axis-block"><div class="sd-axis-header"><span class="sd-axis-badge">Z</span><span class="sd-axis-label">Hanoi Z values</span></div><div class="sd-rows" id="sdRowsZ"></div><div class="sd-add-row"><input class="sd-new-name" type="text" placeholder="Name…" data-axis="z" /><input class="sd-new-val" type="number" step="0.1" placeholder="mm" data-axis="z" /><button class="btn btn-secondary btn-xsmall sd-capture-new" data-axis="z" type="button">↓</button><button class="btn btn-primary btn-xsmall sd-add-entry" data-axis="z" type="button">+ Add</button></div><div class="sd-constants-block"><div class="sd-constant-row"><span class="sd-const-name">Disk height</span><input id="sdDiskHeight" type="number" step="0.1" placeholder="mm" /><button class="btn btn-secondary btn-xsmall" id="sdSaveDiskHeight" type="button">Save</button></div></div></div>
-              <div class="sd-axis-block"><div class="sd-axis-header"><span class="sd-axis-badge">E</span><span class="sd-axis-label">E angles</span></div><div class="sd-rows" id="sdRowsE"></div><div class="sd-add-row"><input class="sd-new-name" type="text" placeholder="Name…" data-axis="e" /><input class="sd-new-val" type="number" step="0.1" placeholder="°" data-axis="e" /><button class="btn btn-secondary btn-xsmall sd-capture-new" data-axis="e" type="button">↓</button><button class="btn btn-primary btn-xsmall sd-add-entry" data-axis="e" type="button">+ Add</button></div></div>
-            </div>
-
-            <div class="sd-axis-grid sd-axis-grid--2">
-              <div class="sd-axis-block"><div class="sd-axis-header"><span class="sd-axis-badge">S</span><span class="sd-axis-label">Servo grip / release per disk</span><span class="sd-unit" style="margin-left:auto;font-size:11px;">Current servo: <strong id="currentServoDisplay">—</strong>°</span></div><div id="diskGripTable" class="disk-grip-table"></div></div>
-            </div>
           </div>
         </section>
       </details>

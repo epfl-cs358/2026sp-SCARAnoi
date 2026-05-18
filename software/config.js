@@ -14,30 +14,33 @@ const CONFIG = {
     displayScale: 0.55
   },
 
-  // Project constants used by the browser when it converts a Hanoi move into G-code.
-  // Keep unknown values empty and fill them once from the interface.
-  // After that, they are stored in localStorage and reused automatically.
+  // Firmware-owned Hanoi coordinates/macros.
+  // The solver now sends these text commands directly to the firmware instead of
+  // generating raw peg X/Y/Z/servo values in the browser.
   hanoi: {
     numDisks: 5,
     targetPegWhenNotSolved: 2,
     targetPegWhenAlreadyOnRight: 0,
     autoStepDelayMs: 2000,
-    diskHeight: "10",
-    calibration: {
-      peg0X: "",
-      peg1X: "",
-      peg2X: "",
-      pegsY: "",
-      platformBaseZ: "",
-      dropZ: "",
-      clearanceZ: ""
+
+    firmwarePegs: [
+      { name: "PEG0", x: 72,  y: 220 },
+      { name: "PEG1", x: -2,  y: 195 },
+      { name: "PEG2", x: -87, y: 230 }
+    ],
+
+    firmwareCommands: {
+      start: "START",
+      up: "UP",
+      open: "OPEN",
+      close: "CLOSE",
+      pegCommandsByIndex: ["PEG0", "PEG1", "PEG2"],
+      layerPrefix: "LAYER"
     },
-    diskAngles: {
-      disk1: { grip: "", release: "" },
-      disk2: { grip: "", release: "" },
-      disk3: { grip: "", release: "" },
-      disk4: { grip: "", release: "" },
-      disk5: { grip: "", release: "" }
+
+    firmwareServo: {
+      openAngle: 100,
+      closeAngle: 0
     }
   },
 
@@ -229,12 +232,62 @@ function getActionGcode(action, values) {
 
     "open-gripper": {
       label: "Open Gripper",
-      gcode: buildServoMove(values.servoOpen)
+      gcode: CONFIG.hanoi.firmwareCommands.open
     },
 
     "close-gripper": {
       label: "Close Gripper",
-      gcode: buildServoMove(values.servoClose)
+      gcode: CONFIG.hanoi.firmwareCommands.close
+    },
+
+    "firmware-start": {
+      label: "Firmware Start",
+      gcode: CONFIG.hanoi.firmwareCommands.start
+    },
+
+    "firmware-up": {
+      label: "Safe Height",
+      gcode: CONFIG.hanoi.firmwareCommands.up
+    },
+
+    "firmware-peg1": {
+      label: "Go to PEG1",
+      gcode: "PEG1"
+    },
+
+    "firmware-peg2": {
+      label: "Go to PEG2",
+      gcode: "PEG2"
+    },
+
+    "firmware-peg3": {
+      label: "Go to PEG3",
+      gcode: "PEG3"
+    },
+
+    "firmware-layer1": {
+      label: "Go to LAYER1",
+      gcode: "LAYER1"
+    },
+
+    "firmware-layer2": {
+      label: "Go to LAYER2",
+      gcode: "LAYER2"
+    },
+
+    "firmware-layer3": {
+      label: "Go to LAYER3",
+      gcode: "LAYER3"
+    },
+
+    "firmware-layer4": {
+      label: "Go to LAYER4",
+      gcode: "LAYER4"
+    },
+
+    "firmware-layer5": {
+      label: "Go to LAYER5",
+      gcode: "LAYER5"
     },
 
     "servo-bounds": {

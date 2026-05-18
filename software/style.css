@@ -3053,3 +3053,22 @@ body {
     width: auto;
   }
 }
+
+/* Firmware macro shortcuts used by the custom Arduino firmware */
+.firmware-shortcuts-box {
+  border-top: 1px solid var(--soft-border);
+  margin-top: 10px;
+  padding-top: 12px;
+}
+
+.firmware-shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .firmware-shortcuts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

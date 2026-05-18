@@ -470,31 +470,43 @@ function drawWorkspace() {
   updateWorkspaceState();
 }
 
-// Draw peg0 / peg1 / peg2 as yellow triangles using saved X/Y data
+
+function getFirmwarePegXY(peg) {
+  const pegs = CONFIG.hanoi?.firmwarePegs || [];
+  const p = pegs[peg];
+  if (!p || p.x === undefined || p.y === undefined) return null;
+  return { x: Number(p.x), y: Number(p.y), name: p.name || `PEG${peg}` };
+}
+
+function firmwarePegLabel(peg) {
+  return getFirmwarePegXY(peg)?.name || `PEG${peg}`;
+}
+
+// Draw PEG0 / PEG1 / PEG2 as yellow triangles using firmware-mirrored coordinates
 function drawPegs(ctx, cx, cy, scale) {
   const ds = CONFIG.arm.displayScale ?? 1;
-  const xList = (typeof sdAxis !== "undefined" && sdAxis?.x) || [];
-  const yList = (typeof sdAxis !== "undefined" && sdAxis?.y) || [];
-  const yEntry = yList.find(r => r.name === "pegs (shared)") || yList[0];
-  const yVal = (yEntry && yEntry.value !== "") ? Number(yEntry.value) : null;
-  if (yVal === null) return;
+  const pegs = CONFIG.hanoi?.firmwarePegs || [];
+  if (!pegs.length) return;
 
   const PEG_H = 9;
   ctx.save();
-  ["peg0","peg1","peg2"].forEach((name, i) => {
-    const xEntry = xList.find(r => r.name === name);
-    if (!xEntry || xEntry.value === "") return;
-    const sx = cx + Number(xEntry.value) * ds * scale;
-    const sy = cy - yVal * ds * scale;
-    ctx.fillStyle = "#f9e04b"; ctx.globalAlpha = 0.88;
+  pegs.forEach((peg, i) => {
+    if (peg.x === undefined || peg.y === undefined) return;
+    const sx = cx + Number(peg.x) * ds * scale;
+    const sy = cy - Number(peg.y) * ds * scale;
+    ctx.fillStyle = "#f9e04b";
+    ctx.globalAlpha = 0.88;
     ctx.beginPath();
     ctx.moveTo(sx, sy - PEG_H);
     ctx.lineTo(sx - PEG_H * 0.7, sy + PEG_H * 0.4);
     ctx.lineTo(sx + PEG_H * 0.7, sy + PEG_H * 0.4);
-    ctx.closePath(); ctx.fill();
-    ctx.globalAlpha = 0.95; ctx.fillStyle = "#f9e04b";
-    ctx.font = "bold 9px ui-monospace,monospace"; ctx.textAlign = "center";
-    ctx.fillText("P" + i, sx, sy + PEG_H * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "#f9e04b";
+    ctx.font = "bold 9px ui-monospace,monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(peg.name || `P${i}`, sx, sy + PEG_H * 2);
   });
   ctx.restore();
 }
@@ -798,11 +810,17 @@ async function handleAction(action) {
   const gcodeToSend = getClampedJogGcode(action) || result.gcode;
   await sendRawGcode(gcodeToSend, result.label);
 
-  // Sync currentServoAngle when open/close gripper sent
-  if (action === "open-gripper" || action === "close-gripper") {
+  // Sync currentServoAngle when open/close gripper sent. The firmware now
+  // accepts OPEN/CLOSE text macros, so there may not be an M280 angle in the UI command.
+  if (action === "open-gripper") {
+    currentServoAngle = CONFIG.hanoi?.firmwareServo?.openAngle ?? currentServoAngle;
+  } else if (action === "close-gripper") {
+    currentServoAngle = CONFIG.hanoi?.firmwareServo?.closeAngle ?? currentServoAngle;
+  } else {
     const m = gcodeToSend.match(/M280 P0 S([\d.]+)/);
     if (m) currentServoAngle = Number(m[1]);
   }
+  updateCurrentServoDisplay();
 
   if (action === "home") await sendRawGcode(CONFIG.system.getPosition, "Get Position after Home");
 }
@@ -996,26 +1014,14 @@ function ikGetDiskHeight()     { const v = sdConst.diskHeight; return (v !== und
 function ikGetZClearance()     { return sdFindVal("z", "height up (clearance)"); }
 
 function ikGetPegXY(peg) {
-  // peg is 0, 1, or 2 — maps directly to pegNames
-  const xList = sdAxis.x || [], yList = sdAxis.y || [];
-  const pegNames = ["peg0","peg1","peg2"];
-  const xEntry = xList.find(r => r.name === pegNames[peg]);
-  const yEntry = yList.find(r => r.name === "pegs (shared)") || yList[0];
-  const x = (xEntry && xEntry.value !== "") ? Number(xEntry.value) : null;
-  const y = (yEntry && yEntry.value !== "") ? Number(yEntry.value) : null;
-  if (x === null || y === null) return null;
-  return { x, y };
+  return getFirmwarePegXY(peg);
 }
 
 function getPegOffset(peg) {
-  // peg1 is the middle peg (IK reference, offset=0)
-  // peg0 and peg2 are outer pegs, stored as absolute X
-  if (peg === 1) return 0;
-  const mid = sdFindVal("x", "peg1");
-  if (mid === null) return NaN;
-  const target = sdFindVal("x", peg === 0 ? "peg0" : "peg2");
-  if (target === null) return NaN;
-  return target - mid;
+  const mid = getFirmwarePegXY(1);
+  const target = getFirmwarePegXY(peg);
+  if (!mid || !target) return NaN;
+  return target.x - mid.x;
 }
 
 function captureAxisValue(axis) {
@@ -1268,11 +1274,9 @@ function ikGetGripZ(diskLevel) {
 }
 
 function updateIkClearanceNote() {
-  const el = document.getElementById("ikClearanceNote"); if (!el) return;
-  const v = ikGetZClearance();
-  el.innerHTML = v !== null
-    ? `Z clearance: <strong>${v} mm</strong> — from saved Z "height up (clearance)"`
-    : `Z clearance: <span style="color:var(--danger)">⚠ not set — save "height up (clearance)" in Z axis</span>`;
+  const el = document.getElementById("ikClearanceNote");
+  if (!el) return;
+  el.innerHTML = `Firmware macro mode: peg positions, layers, safe height, and gripper angles are defined in <strong>firmware.ino</strong>.`;
 }
 
 function ikSetStage(stage) {
@@ -1285,95 +1289,47 @@ function computeIKTransfer() {
   const fromPeg   = Number(document.querySelector('input[name="ikFrom"]:checked')?.value  || 0);
   const toPeg     = Number(document.querySelector('input[name="ikTo"]:checked')?.value    || 2);
   const diskLevel = Number(document.querySelector('input[name="ikLevel"]:checked')?.value || 1);
-  const zClear    = ikGetZClearance();
 
   const resultEl = document.getElementById("ikResult");
-  ikStepGcodes = []; ikStepLabels = []; ikComputedData = null;
+  ikStepGcodes = [];
+  ikStepLabels = [];
+  ikComputedData = null;
   ikSetStage(null);
 
   const err = (msg) => { resultEl.innerHTML = `<div class="ik-error">${msg}</div>`; ikSetStage(null); };
 
   if (fromPeg === toPeg) return err("From and To pegs must be different.");
-  if (zClear  === null)  return err('Z clearance not set. Save "height up (clearance)" in Z axis.');
+  if (diskLevel < 1 || diskLevel > 5) return err("Layer must be between 1 and 5.");
 
-  const fromXY = ikGetPegXY(fromPeg), toXY = ikGetPegXY(toPeg);
-  if (!fromXY) return err(`Missing X or Y data for Peg ${fromPeg}. Check Saved Data.`);
-  if (!toXY)   return err(`Missing X or Y data for Peg ${toPeg}. Check Saved Data.`);
-  if (isXYOutsideWorkspace(toXY.x, toXY.y)) return err(`Target Peg ${toPeg} (X${toXY.x.toFixed(1)}, Y${toXY.y.toFixed(1)}) is outside the workspace.`);
+  const fromXY = ikGetPegXY(fromPeg);
+  const toXY = ikGetPegXY(toPeg);
+  const sourceLayer = `LAYER${diskLevel}`;
+  const targetLayer = `LAYER1`;
 
-  const dropZ = ikGetDropZ();
-  if (dropZ === null) return err('"release / top-of-peg" Z not saved. Check Saved Data.');
-
-  const gripAngle    = getGripAngleForDisk(diskType);
-  const releaseAngle = getReleaseAngleForDisk(diskType);
-  if (!gripAngle)    return err(`Grip angle not saved for Disk ${diskType}. Set it in Saved Data → Servo.`);
-  if (!releaseAngle) return err(`Release angle not saved for Disk ${diskType}. Set it in Saved Data → Servo.`);
-
-  const fromIK = ikScaraAngles(fromXY.x, fromXY.y);
-  const toIK   = ikScaraAngles(toXY.x,   toXY.y);
-  const feedXY = unitsPerSecondToFeedrate(xySpeedSlider.value);
-  const feedZ  = unitsPerSecondToFeedrate(zSpeedSlider.value);
-
-  // Step 0: move to source peg XY at clearance height (G1 Cartesian — firmware handles IK)
-  const liftZ = dropZ + zClear;
-  const curXY = hasKnownPosition() ? { x: simulatedPosition.x, y: simulatedPosition.y } : fromXY;
-  const alreadyAtFrom = Math.hypot(curXY.x - fromXY.x, curXY.y - fromXY.y) < 1.0;
-  const s0 = alreadyAtFrom ? null : `G90\nG1 X${formatNumber(fromXY.x)} Y${formatNumber(fromXY.y)} Z${formatNumber(liftZ)} F${feedXY}`;
-
-  // Compute joint deltas from source peg IK (arm will be at fromPeg after s0/grip)
-  const sDelta = ikShortestDelta(fromIK.shoulderDeg, toIK.shoulderDeg);
-  const eDelta = ikShortestDelta(fromIK.elbowDeg,    toIK.elbowDeg);
-
-  const gripZ = ikGetGripZ(diskLevel);
-  const liftZ2 = liftZ; // already computed above
-
-  // Step 1: descend to grip Z, close gripper, lift to clearance
-  const s1 = [
-    `G90\nG1 Z${formatNumber(gripZ)} F${feedZ}`,
-    `M280 P0 S${formatNumber(gripAngle)}`,
-    `G90\nG1 Z${formatNumber(liftZ2)} F${feedZ}`
-  ].join("\n");
-
-  // Step 2: rotate joints to destination peg via M360 (raw delta, no IK)
-  const s2parts = [];
-  if (Math.abs(sDelta) > 0.01) s2parts.push(`X${formatNumber(sDelta)}`);
-  if (Math.abs(eDelta) > 0.01) s2parts.push(`Y${formatNumber(eDelta)}`);
-  const s2 = s2parts.length ? `M360 ${s2parts.join(" ")} F${feedXY}` : null;
-
-  // Step 3: lower to drop Z, open gripper
-  const s3 = [
-    `G90\nG1 Z${formatNumber(dropZ)} F${feedZ}`,
-    `M280 P0 S${formatNumber(releaseAngle)}`
-  ].join("\n");
-
-  // Natural language helpers
-  const signStr = (v) => (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2));
-  const levelLabel = diskLevel === 1 ? "bottom" : diskLevel === 5 ? "top" : `level ${diskLevel}`;
-
-  // Store for auto-confirm flow
   const allSteps = [
-    s0 ? { label: `Position over Peg ${fromPeg}`, gcode: s0 } : null,
-    { label: "Descend, Grip & Lift", gcode: s1 },
-    s2 ? { label: "Rotate joints",  gcode: s2 } : null,
-    { label: "Lower & Release",     gcode: s3 }
-  ].filter(Boolean);
+    { label: `Move above ${firmwarePegLabel(fromPeg)}`, gcode: `UP
+${firmwarePegLabel(fromPeg)}` },
+    { label: `Pick Disk ${diskType} from layer ${diskLevel}`, gcode: `${sourceLayer}
+CLOSE
+UP` },
+    { label: `Move to ${firmwarePegLabel(toPeg)}`, gcode: `${firmwarePegLabel(toPeg)}` },
+    { label: `Place Disk ${diskType} on target layer`, gcode: `${targetLayer}
+OPEN
+UP` }
+  ];
 
   ikStepGcodes  = allSteps.map(s => s.gcode);
   ikStepLabels  = allSteps.map(s => s.label);
-
-  ikComputedData = { diskType, fromPeg, toPeg, diskLevel, fromXY, toXY, levelLabel };
+  ikComputedData = { diskType, fromPeg, toPeg, diskLevel, fromXY, toXY };
 
   const nlLines = [
-    `<strong>Disk ${diskType}</strong>, <strong>${levelLabel}</strong> of stack: Peg <strong>${fromPeg}</strong> → Peg <strong>${toPeg}</strong>`,
-    s0 ? `<strong>Step 1 — Position over Peg ${fromPeg}</strong>` : null,
-    s0 ? `&nbsp;&nbsp;Move to X<strong>${formatNumber(fromXY.x)}</strong> Y<strong>${formatNumber(fromXY.y)}</strong> at Z<strong>${formatNumber(liftZ2)}</strong> mm clearance.` : null,
-    `<strong>Step ${s0 ? "2" : "1"} — Descend, Grip &amp; Lift</strong>`,
-    `&nbsp;&nbsp;Lower arm to Z <strong>${gripZ.toFixed(2)} mm</strong>, close servo to <strong>${gripAngle}°</strong>, lift to Z <strong>${liftZ2.toFixed(2)} mm</strong>.`,
-    s2 ? `<strong>Step ${s0 ? "3" : "2"} — Rotate joints</strong>` : null,
-    s2 ? `&nbsp;&nbsp;Shoulder: <strong>${signStr(sDelta)}°</strong> &nbsp; Elbow: <strong>${signStr(eDelta)}°</strong>` : null,
-    `<strong>Step ${[s0,true,s2,true].filter(Boolean).length} — Lower &amp; Release</strong>`,
-    `&nbsp;&nbsp;Lower to Z <strong>${dropZ.toFixed(2)} mm</strong>, open servo to <strong>${releaseAngle}°</strong>.`
-  ].filter(Boolean);
+    `<strong>Disk ${diskType}</strong>: ${firmwarePegLabel(fromPeg)} → ${firmwarePegLabel(toPeg)}`,
+    `The firmware now owns peg coordinates, Z layers, and gripper angles.`,
+    `<strong>Step 1 — Move above source</strong>: send <code>UP</code>, then <code>${firmwarePegLabel(fromPeg)}</code>.`,
+    `<strong>Step 2 — Pick</strong>: send <code>${sourceLayer}</code>, <code>CLOSE</code>, then <code>UP</code>.`,
+    `<strong>Step 3 — Move to target</strong>: send <code>${firmwarePegLabel(toPeg)}</code>.`,
+    `<strong>Step 4 — Place</strong>: send target layer command, <code>OPEN</code>, then <code>UP</code>.`
+  ];
 
   const stepRows = allSteps.map((s, i) => `
     <div class="ik-step-row">
@@ -1387,7 +1343,7 @@ function computeIKTransfer() {
   resultEl.innerHTML = `
     <div class="ik-nl-summary">${nlLines.join("<br>")}</div>
     <div class="ik-gcode-toggle-row">
-      <button class="btn btn-secondary btn-xsmall" id="ikToggleGcode">Show G-code</button>
+      <button class="btn btn-secondary btn-xsmall" id="ikToggleGcode">Show firmware commands</button>
     </div>
     <div class="ik-gcode-steps" id="ikGcodeSteps" style="display:none">${stepRows}</div>
   `;
@@ -1395,10 +1351,9 @@ function computeIKTransfer() {
     const el = document.getElementById("ikGcodeSteps");
     const shown = el.style.display !== "none";
     el.style.display = shown ? "none" : "block";
-    e.target.textContent = shown ? "Show G-code" : "Hide G-code";
+    e.target.textContent = shown ? "Show firmware commands" : "Hide firmware commands";
   });
 
-  // Auto-queue the first step for preview+confirm immediately
   ikSetStage("plan");
   ikQueueNextStep(0);
 }
@@ -1421,8 +1376,8 @@ function ikQueueNextStep(i) {
 
   // Show ghost arm preview for steps that move XY
   if (ikComputedData) {
-    if (label.startsWith("Position over Peg")) setPreviewPosition(ikComputedData.fromXY.x, ikComputedData.fromXY.y);
-    else if (label === "Rotate joints")        setPreviewPosition(ikComputedData.toXY.x,   ikComputedData.toXY.y);
+    if (label.startsWith("Move above") && ikComputedData.fromXY) setPreviewPosition(ikComputedData.fromXY.x, ikComputedData.fromXY.y);
+    else if (label.startsWith("Move to") && ikComputedData.toXY)  setPreviewPosition(ikComputedData.toXY.x,   ikComputedData.toXY.y);
   }
 
   pendingExecution = async () => {
