@@ -53,10 +53,35 @@
 // ========================= USER SETTINGS =========================
 // ================================================================
 
-#define G_CODE_SERIAL Serial2
+#define G_CODE_SERIAL Serial
 
 // Serial speed. This matches your old Marlin config.
 static const long BAUDRATE = 250000;
+
+// ------------------------- Custom Commands -------------------------
+// Default values for custom text macros. Change these as needed.
+static float X_START = 69.0f;
+static float Y_START = 56.0f;
+static float Z_START = -85.0f;
+static float E_START = 98.0f;
+
+static float Z_UP = 144.0f;
+static float Z_LAYER1 = 0.5f;
+static float Z_LAYER2 = 15.5f;
+static float Z_LAYER3 = 30.5f;
+static float Z_LAYER4 = 45.5f;
+static float Z_LAYER5 = 60.5f;
+
+static float X_PEG1 = 72.0f;
+static float X_PEG2 = -2.0f;
+static float X_PEG3 = -87.0f;
+
+static float Y_PEG1 = 220.0f;
+static float Y_PEG2 = 195.0f;
+static float Y_PEG3 = 230.0f;
+
+static int ANGLE_OPEN = 100;
+static int ANGLE_CLOSE = 0;
 
 // ------------------------- RAMPS 1.4 pins ------------------------
 // Standard RAMPS 1.4 pin mapping for Arduino Mega.
@@ -118,7 +143,7 @@ static float MAX_ELBOW_DEG_S    = 120.0f;
 static float MAX_Z_MM_S         = 25.0f;
 static float MAX_E_DEG_S        = 180.0f;
 
-static float CURRENT_SPEED = 2000.0f;
+static float CURRENT_SPEED = 3000.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
@@ -227,7 +252,7 @@ static bool HARD_ENDSTOP_ABORT_ON_TRIGGER = true;
 // ------------------------- Homing -----------------------------
 static int SHOULDER_HOME_DIR = -1;
 static int ELBOW_HOME_DIR    = -1;
-static int Z_HOME_DIR        = -1;
+static int Z_HOME_DIR        = 1;
 static int E_HOME_DIR        = -1;
 
 // Position assigned after homing.
@@ -244,10 +269,10 @@ static float Z_HOME_MM         = 0.0f;
 static float E_HOME_DEG        = -100.0f;
 
 // Homing speeds.
-static float SHOULDER_HOME_DEG_S = 40.0f;
-static float ELBOW_HOME_DEG_S    = 40.0f;
-static float Z_HOME_MM_S         = 5.0f;
-static float E_HOME_DEG_S        = 40.0f;
+static float SHOULDER_HOME_DEG_S = 35.0f;
+static float ELBOW_HOME_DEG_S    = 35.0f;
+static float Z_HOME_MM_S         = 15.0f;
+static float E_HOME_DEG_S        = 35.0f;
 
 // Homing travel limits.
 // If no endstop triggers after this much movement, homing fails.
@@ -562,12 +587,12 @@ bool inverseKinematics(float x, float y, float &shoulderDeg, float &elbowDeg) {
   float r2 = px * px + py * py;
   float r = sqrt(r2);
 
-  float maxReach = LINK_1_MM + LINK_2_MM;
+  /*float maxReach = LINK_1_MM + LINK_2_MM;
   float minReach = fabs(LINK_1_MM - LINK_2_MM);
 
   if (r > maxReach + 0.001f) return false;
   if (r < minReach - 0.001f) return false;
-  if (r < FORBIDDEN_RADIUS_MM) return false;
+  if (r < FORBIDDEN_RADIUS_MM) return false;*/
 
   float c2 = (r2 - LINK_1_MM * LINK_1_MM - LINK_2_MM * LINK_2_MM) / (2.0f * LINK_1_MM * LINK_2_MM);
   c2 = clampFloat(c2, -1.0f, 1.0f);
@@ -1092,7 +1117,7 @@ bool homeElbow() {
     yMaxTriggered,
     ELBOW_HOME_BACKOFF_DEG,
     ELBOW_HOME_DEG,
-    -(float)GRIPPER_COMPENSATION_SIGN
+    (float)GRIPPER_COMPENSATION_SIGN
   );
 }
 
@@ -1124,6 +1149,7 @@ void updatePositionAfterHoming() {
 }
 
 bool handleG28(const String &line) {
+  int tmp = GRIPPER_MODE;
   GRIPPER_MODE = GRIPPER_MODE_TRACKING;
 
   if (emergencyStopped) {
@@ -1140,8 +1166,8 @@ bool handleG28(const String &line) {
 
   // Home E first, otherwise a full G28 would compensate E during X/Y homing,
   // then overwrite that compensation by homing E at the end.
-  if (homeAll || hasE) {
-    if (!homeE()) return false;
+  if (homeAll || hasZ) {
+    if (!homeZ()) return false;
   }
 
   if (homeAll || hasX) {
@@ -1152,11 +1178,12 @@ bool handleG28(const String &line) {
     if (!homeElbow()) return false;
   }
 
-  if (homeAll || hasZ) {
-    if (!homeZ()) return false;
+  if (homeAll || hasE) {
+    if (!homeE()) return false;
   }
 
   updatePositionAfterHoming();
+  GRIPPER_MODE = tmp;
   return true;
 }
 
@@ -1578,6 +1605,31 @@ void handleCommand(String rawLine) {
     emergencyStop(F("M112 received"));
     return;
   }
+
+  // --- CUSTOM TEXT COMMANDS ---
+  if (line == "START") {
+    handleRawMoveM360("M360 X" + String(X_START) + " Y" + String(Y_START) + " Z" + String(Z_START) + " E" + String(E_START));
+    handleG92("G92 X0 Y260 Z145 E0");
+    handleM361("M361 S0");
+    handleMove("G1 X" + String(X_PEG1) + " Y" + String(Y_PEG1));
+    // printOk() is handled by the sub-functions if they succeed, but we can ensure it prints here if needed.
+    return;
+  }
+  if (line == "UP") { handleMove("G1 Z" + String(Z_UP)); return; }
+  
+  if (line == "LAYER1") { handleMove("G1 Z" + String(Z_LAYER1)); return; }
+  if (line == "LAYER2") { handleMove("G1 Z" + String(Z_LAYER2)); return; }
+  if (line == "LAYER3") { handleMove("G1 Z" + String(Z_LAYER3)); return; }
+  if (line == "LAYER4") { handleMove("G1 Z" + String(Z_LAYER4)); return; }
+  if (line == "LAYER5") { handleMove("G1 Z" + String(Z_LAYER5)); return; }
+
+  if (line == "PEG1") { handleMove("G1 X" + String(X_PEG1) + " Y" + String(Y_PEG1)); return; }
+  if (line == "PEG2") { handleMove("G1 X" + String(X_PEG2) + " Y" + String(Y_PEG2)); return; }
+  if (line == "PEG3") { handleMove("G1 X" + String(X_PEG3) + " Y" + String(Y_PEG3)); return; }
+
+  if (line == "OPEN") { handleM280("M280 P0 S" + String(ANGLE_OPEN)); return; }
+  if (line == "CLOSE") { handleM280("M280 P0 S" + String(ANGLE_CLOSE)); return; }
+  // ----------------------------
 
   int g = getCommandNumber(line, 'G');
   int m = getCommandNumber(line, 'M');
