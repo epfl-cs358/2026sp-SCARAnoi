@@ -3012,6 +3012,15 @@ body {
   display: none !important;
 }
 
+.pro-logo-full {
+  width: 240px;
+  height: 65px;
+  background: var(--accent);
+
+  -webkit-mask: url("assets/scaranoi_logo_traced_simplified.svg") center / contain no-repeat;
+  mask: url("assets/scaranoi_logo_traced_simplified.svg") center / contain no-repeat;
+}
+
 @media (max-width: 1280px) {
   .pro-mission-panel {
     grid-template-columns: 1fr;
