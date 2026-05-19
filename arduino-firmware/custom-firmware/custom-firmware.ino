@@ -60,28 +60,44 @@ static const long BAUDRATE = 250000;
 
 // ------------------------- Custom Commands -------------------------
 // Default values for custom text macros. Change these as needed.
-static float X_START = 69.0f;
-static float Y_START = 56.0f;
-static float Z_START = -85.0f;
-static float E_START = 98.0f;
 
-static float Z_UP = 144.0f;
-static float Z_LAYER1 = 0.5f;
-static float Z_LAYER2 = 15.5f;
-static float Z_LAYER3 = 30.5f;
-static float Z_LAYER4 = 45.5f;
-static float Z_LAYER5 = 60.5f;
+static float X_START_COORD = 0.0f;
+static float Y_START_COORD = 240.0f;
+static float Z_START_COORD = 150.0f;
+static float E_START_COORD = 0.0f;
 
-static float X_PEG1 = 72.0f;
-static float X_PEG2 = -2.0f;
-static float X_PEG3 = -87.0f;
+static float X_START = 79.635f;
+static float Y_START = 73.546f;
+static float Z_START = 0.0f;
+static float E_START = 121.711f;
 
-static float Y_PEG1 = 220.0f;
-static float Y_PEG2 = 195.0f;
-static float Y_PEG3 = 230.0f;
+static float Z_UP = -85.0f;
+static float Z_LAYER1 = -230.0f;
+static float Z_LAYER2 = -215.0f;
+static float Z_LAYER3 = -200.0f;
+static float Z_LAYER4 = -185.0f;
+static float Z_LAYER5 = -170.0f;
+
+static float X_PEG1 = 145.0f;
+static float X_PEG2 = 18.0f;
+static float X_PEG3 = -100.0f;
+
+static float Y_PEG1 = 275.0f;
+static float Y_PEG2 = 275.0f;
+static float Y_PEG3 = 275.0f;
+
+static float X_PEG1_UP = 140.0f;
+static float X_PEG2_UP = 22.0f;
+static float X_PEG3_UP = -95.0f;
+
+static float Y_PEG1_UP = 258.0f;
+static float Y_PEG2_UP = 265.0f;
+static float Y_PEG3_UP = 275.0f;
 
 static int ANGLE_OPEN = 100;
 static int ANGLE_CLOSE = 0;
+
+static int CURRENT_PEG = 2;
 
 // ------------------------- RAMPS 1.4 pins ------------------------
 // Standard RAMPS 1.4 pin mapping for Arduino Mega.
@@ -131,16 +147,16 @@ static bool INVERT_E_DIR        = false; // wrist rotation
 // From your previous Marlin config:
 //   { 88.8889, 35.5556, 400, 35.5556 }
 // Here X/Y become SCARA joint degrees.
-static float SHOULDER_STEPS_PER_DEG = 88.8889;
-static float ELBOW_STEPS_PER_DEG    = 35.5556;
-static float Z_STEPS_PER_MM         = 400.0f;
-static float E_STEPS_PER_DEG        = 35.5556;
+static float SHOULDER_STEPS_PER_DEG = 200*16*8 / 360; // 200 * 16 * 10/360
+static float ELBOW_STEPS_PER_DEG    = 200*16*3.2 / 360;
+static float Z_STEPS_PER_MM         = 200*4 / 8;
+static float E_STEPS_PER_DEG        = 200*16*3.2 / 360;
 
 // ------------------------- Speed limits --------------------------
 // Conservative defaults. Increase only after testing.
 static float MAX_SHOULDER_DEG_S = 60.0f;
 static float MAX_ELBOW_DEG_S    = 120.0f;
-static float MAX_Z_MM_S         = 25.0f;
+static float MAX_Z_MM_S         = 40.0f;
 static float MAX_E_DEG_S        = 180.0f;
 
 static float CURRENT_SPEED = 3000.0f;
@@ -260,18 +276,18 @@ static int E_HOME_DIR        = -1;
 // Defaults chosen to match your old Marlin home position:
 //   X = -(L1 + L2), Y = 0
 // which corresponds roughly to shoulder = 180°, elbow = 0°.
-static float SHOULDER_HOME_DEG = -58.0f;
-static float ELBOW_HOME_DEG    = -66.0f;
+static float SHOULDER_HOME_DEG = -79.635f;
+static float ELBOW_HOME_DEG    = -73.546f;
 static float Z_HOME_MM         = 0.0f;
+static float E_HOME_DEG        = -121.711f;
 
 // This is the raw E motor angle after E homing.
 // The reported logical E is computed from this and the current gripper mode.
-static float E_HOME_DEG        = -100.0f;
 
 // Homing speeds.
 static float SHOULDER_HOME_DEG_S = 35.0f;
 static float ELBOW_HOME_DEG_S    = 35.0f;
-static float Z_HOME_MM_S         = 15.0f;
+static float Z_HOME_MM_S         = 25.0f;
 static float E_HOME_DEG_S        = 35.0f;
 
 // Homing travel limits.
@@ -1571,6 +1587,31 @@ void handleG92(const String &line) {
   }
 }
 
+float getCurrentPegX_Up() {
+  if (CURRENT_PEG == 1) return X_PEG1_UP;
+  else if (CURRENT_PEG == 2) return X_PEG2_UP;
+  else return X_PEG3_UP;
+}
+
+float getCurrentPegY_Up() {
+  if (CURRENT_PEG == 1) return Y_PEG1_UP;
+  else if (CURRENT_PEG == 2) return Y_PEG2_UP;
+  else return Y_PEG3_UP;
+}
+
+float getCurrentPegX_Down() {
+  if (CURRENT_PEG == 1) return X_PEG1;
+  else if (CURRENT_PEG == 2) return X_PEG2;
+  else return X_PEG3;
+}
+
+float getCurrentPegY_Down() {
+  if (CURRENT_PEG == 1) return Y_PEG1;
+  else if (CURRENT_PEG == 2) return Y_PEG2;
+  else return Y_PEG3;
+}
+
+
 void handleMove(const String &line) {
   float feed = getParam(line, 'F', CURRENT_SPEED);
   CURRENT_SPEED = feed;
@@ -1609,26 +1650,64 @@ void handleCommand(String rawLine) {
   // --- CUSTOM TEXT COMMANDS ---
   if (line == "START") {
     handleRawMoveM360("M360 X" + String(X_START) + " Y" + String(Y_START) + " Z" + String(Z_START) + " E" + String(E_START));
-    handleG92("G92 X0 Y260 Z145 E0");
     handleM361("M361 S0");
-    handleMove("G1 X" + String(X_PEG1) + " Y" + String(Y_PEG1));
-    // printOk() is handled by the sub-functions if they succeed, but we can ensure it prints here if needed.
+    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP));
     return;
   }
-  if (line == "UP") { handleMove("G1 Z" + String(Z_UP)); return; }
+    // UP: Moves to the UP X/Y coordinates for the current peg, at Z_UP height
+  if (line == "UP") { 
+    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    return; 
+  }
   
-  if (line == "LAYER1") { handleMove("G1 Z" + String(Z_LAYER1)); return; }
-  if (line == "LAYER2") { handleMove("G1 Z" + String(Z_LAYER2)); return; }
-  if (line == "LAYER3") { handleMove("G1 Z" + String(Z_LAYER3)); return; }
-  if (line == "LAYER4") { handleMove("G1 Z" + String(Z_LAYER4)); return; }
-  if (line == "LAYER5") { handleMove("G1 Z" + String(Z_LAYER5)); return; }
+  if (line == "LAYER1") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER1)); return; }
+  if (line == "LAYER2") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER2)); return; }
+  if (line == "LAYER3") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER3)); return; }
+  if (line == "LAYER4") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER4)); return; }
+  if (line == "LAYER5") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER5)); return; }
 
-  if (line == "PEG1") { handleMove("G1 X" + String(X_PEG1) + " Y" + String(Y_PEG1)); return; }
-  if (line == "PEG2") { handleMove("G1 X" + String(X_PEG2) + " Y" + String(Y_PEG2)); return; }
-  if (line == "PEG3") { handleMove("G1 X" + String(X_PEG3) + " Y" + String(Y_PEG3)); return; }
+  if (line == "PEG1") { 
+    CURRENT_PEG = 1; 
+    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    return; 
+  }
+  if (line == "PEG2") { 
+    CURRENT_PEG = 2; 
+    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    return; 
+  }
+  if (line == "PEG3") { 
+    CURRENT_PEG = 3; 
+    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    return; 
+  }
+
 
   if (line == "OPEN") { handleM280("M280 P0 S" + String(ANGLE_OPEN)); return; }
   if (line == "CLOSE") { handleM280("M280 P0 S" + String(ANGLE_CLOSE)); return; }
+
+    // --- CENTER MEASUREMENT COMMANDS ---
+  if (line == "CENTER X") { 
+    if (USE_X_MIN_ENDSTOP && USE_X_MAX_ENDSTOP) measureAxisCenter('X', shoulderAxis, xMinTriggered, xMaxTriggered, -1);
+    else printError(F("X min and max endstops must be enabled"));
+    return; 
+  }
+  if (line == "CENTER Y") { 
+    if (USE_Y_MIN_ENDSTOP && USE_Y_MAX_ENDSTOP) measureAxisCenter('Y', elbowAxis, yMinTriggered, yMaxTriggered, -1);
+    else printError(F("Y min and max endstops must be enabled"));
+    return; 
+  }
+  if (line == "CENTER Z") { 
+    // If your Z min switch is actually in the +1 direction, change the -1 below to 1
+    if (USE_Z_MIN_ENDSTOP && USE_Z_MAX_ENDSTOP) measureAxisCenter('Z', zAxis, zMinTriggered, zMaxTriggered, -1);
+    else printError(F("Z min and max endstops must be enabled"));
+    return; 
+  }
+  if (line == "CENTER E") { 
+    if (USE_E_MIN_ENDSTOP && USE_E_MAX_ENDSTOP) measureAxisCenter('E', eAxis, eMinTriggered, eMaxTriggered, -1);
+    else printError(F("E min and max endstops must be enabled"));
+    return; 
+  }
   // ----------------------------
 
   int g = getCommandNumber(line, 'G');
@@ -1818,6 +1897,7 @@ void setupPins() {
 
 void setup() {
   G_CODE_SERIAL.begin(BAUDRATE);
+  Serial.begin(BAUDRATE);
   setupPins();
 
   current.shoulderDeg = SHOULDER_HOME_DEG;
@@ -1837,6 +1917,9 @@ void setup() {
 void loop() {
   while (G_CODE_SERIAL.available() > 0) {
     char c = (char)G_CODE_SERIAL.read();
+    Serial.print(c);
+
+    
 
     if (c == '\r') continue;
 
@@ -1845,6 +1928,7 @@ void loop() {
       String line(inputLine);
       inputPos = 0;
       memset(inputLine, 0, MAX_CMD_LENGTH + 1);
+      
       handleCommand(line);
     } else if (inputPos < MAX_CMD_LENGTH) {
       inputLine[inputPos++] = c;
