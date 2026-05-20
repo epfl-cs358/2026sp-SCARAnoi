@@ -78,26 +78,26 @@ static float Z_LAYER3 = -200.0f;
 static float Z_LAYER4 = -185.0f;
 static float Z_LAYER5 = -170.0f;
 
-static float X_PEG1 = 145.0f;
-static float X_PEG2 = 18.0f;
-static float X_PEG3 = -100.0f;
+static float X_PEG2 = 145.0f;
+static float X_PEG1 = 18.0f;
+static float X_PEG0 = -100.0f;
 
-static float Y_PEG1 = 275.0f;
 static float Y_PEG2 = 275.0f;
-static float Y_PEG3 = 275.0f;
+static float Y_PEG1 = 275.0f;
+static float Y_PEG0 = 275.0f;
 
-static float X_PEG1_UP = 140.0f;
-static float X_PEG2_UP = 22.0f;
-static float X_PEG3_UP = -95.0f;
+static float X_PEG2_UP = 140.0f;
+static float X_PEG1_UP = 22.0f;
+static float X_PEG0_UP = -95.0f;
 
-static float Y_PEG1_UP = 258.0f;
-static float Y_PEG2_UP = 265.0f;
-static float Y_PEG3_UP = 275.0f;
+static float Y_PEG2_UP = 258.0f;
+static float Y_PEG1_UP = 265.0f;
+static float Y_PEG0_UP = 275.0f;
 
-static int ANGLE_OPEN = 100;
+static int ANGLE_OPEN = 120;
 static int ANGLE_CLOSE = 0;
 
-static int CURRENT_PEG = 2;
+static int CURRENT_PEG = 1;
 
 // ------------------------- RAMPS 1.4 pins ------------------------
 // Standard RAMPS 1.4 pin mapping for Arduino Mega.
@@ -149,7 +149,7 @@ static bool INVERT_E_DIR        = false; // wrist rotation
 // Here X/Y become SCARA joint degrees.
 static float SHOULDER_STEPS_PER_DEG = 200*16*8 / 360; // 200 * 16 * 10/360
 static float ELBOW_STEPS_PER_DEG    = 200*16*3.2 / 360;
-static float Z_STEPS_PER_MM         = 200*4 / 8;
+static float Z_STEPS_PER_MM         = 200*8 / 8;
 static float E_STEPS_PER_DEG        = 200*16*3.2 / 360;
 
 // ------------------------- Speed limits --------------------------
@@ -159,7 +159,7 @@ static float MAX_ELBOW_DEG_S    = 120.0f;
 static float MAX_Z_MM_S         = 40.0f;
 static float MAX_E_DEG_S        = 180.0f;
 
-static float CURRENT_SPEED = 3000.0f;
+static float CURRENT_SPEED = 2700.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
@@ -203,7 +203,7 @@ static int SCARA_ELBOW_SIGN = -1;
 
 // Split long Cartesian moves into small segments.
 // Smaller = closer to straight XY path, but more computation.
-static float CARTESIAN_SEGMENT_MM = 2.0f;
+static float CARTESIAN_SEGMENT_MM = 3.0f;
 
 // --------------------- Gripper orientation modes -----------------
 // 0 = independent mode: gripper keeps a fixed world direction.
@@ -287,7 +287,7 @@ static float E_HOME_DEG        = -121.711f;
 // Homing speeds.
 static float SHOULDER_HOME_DEG_S = 35.0f;
 static float ELBOW_HOME_DEG_S    = 35.0f;
-static float Z_HOME_MM_S         = 25.0f;
+static float Z_HOME_MM_S         = 20.0f;
 static float E_HOME_DEG_S        = 35.0f;
 
 // Homing travel limits.
@@ -1588,27 +1588,27 @@ void handleG92(const String &line) {
 }
 
 float getCurrentPegX_Up() {
-  if (CURRENT_PEG == 1) return X_PEG1_UP;
-  else if (CURRENT_PEG == 2) return X_PEG2_UP;
-  else return X_PEG3_UP;
+  if (CURRENT_PEG == 2) return X_PEG2_UP;
+  else if (CURRENT_PEG == 1) return X_PEG1_UP;
+  else return X_PEG0_UP;
 }
 
 float getCurrentPegY_Up() {
-  if (CURRENT_PEG == 1) return Y_PEG1_UP;
-  else if (CURRENT_PEG == 2) return Y_PEG2_UP;
-  else return Y_PEG3_UP;
+  if (CURRENT_PEG == 2) return Y_PEG2_UP;
+  else if (CURRENT_PEG == 1) return Y_PEG1_UP;
+  else return Y_PEG0_UP;
 }
 
 float getCurrentPegX_Down() {
-  if (CURRENT_PEG == 1) return X_PEG1;
-  else if (CURRENT_PEG == 2) return X_PEG2;
-  else return X_PEG3;
+  if (CURRENT_PEG == 2) return X_PEG2;
+  else if (CURRENT_PEG == 1) return X_PEG1;
+  else return X_PEG0;
 }
 
 float getCurrentPegY_Down() {
-  if (CURRENT_PEG == 1) return Y_PEG1;
-  else if (CURRENT_PEG == 2) return Y_PEG2;
-  else return Y_PEG3;
+  if (CURRENT_PEG == 2) return Y_PEG2;
+  else if (CURRENT_PEG == 1) return Y_PEG1;
+  else return Y_PEG0;
 }
 
 
@@ -1666,20 +1666,25 @@ void handleCommand(String rawLine) {
   if (line == "LAYER4") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER4)); return; }
   if (line == "LAYER5") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER5)); return; }
 
-  if (line == "PEG1") { 
-    CURRENT_PEG = 1; 
-    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
-    return; 
-  }
   if (line == "PEG2") { 
     CURRENT_PEG = 2; 
     handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
     return; 
   }
-  if (line == "PEG3") { 
-    CURRENT_PEG = 3; 
+  if (line == "PEG1") { 
+    CURRENT_PEG = 1; 
     handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
     return; 
+  }
+  if (line == "PEG0") { 
+    CURRENT_PEG = 0; 
+    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    return; 
+  }
+
+  if (line == "SPEED") {
+    G_CODE_SERIAL.println(String(CURRENT_SPEED));
+    return;
   }
 
 
