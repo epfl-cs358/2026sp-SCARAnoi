@@ -1863,47 +1863,6 @@ input[type="range"] {
 .card-header.collapsible.collapsed::after { transform: rotate(-90deg); }
 .card.collapsed .card-body { display: none; }
 
-/* ════════════════════════════════════════
-   SIMULATION MODE
-   ════════════════════════════════════════ */
-
-.sim-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sim-mode-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
-
-/* When sim mode is active, accent the label */
-body.sim-mode .sim-mode-label { color: var(--warning); font-weight: 700; }
-
-/* Sim toggle slider — orange-yellow tint */
-.slider--sim { background: #444; }
-input:checked + .slider--sim { background: var(--warning) !important; }
-
-/* Sim-mode header banner */
-.sim-banner {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(255, 176, 102, 0.12);
-  border: 1px solid var(--warning);
-  border-radius: 8px;
-  padding: 4px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--warning);
-  margin-bottom: 8px;
-}
-
-body.sim-mode .sim-banner { display: flex; }
-
-/* Sim log entries */
-.log-sim { color: var(--warning) !important; }
-.log-sim-response { color: var(--success) !important; }
-
 /* ── Compact top-side-row sizing ── */
 .top-side-row .card-body { padding: 8px 10px; }
 .top-side-row .camera-frame { border-radius: 10px; }
@@ -3071,4 +3030,37 @@ body {
   .firmware-shortcuts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+/* Hanoi CV verification after each completed disk action */
+.hanoi-verification-panel {
+  margin-top: 10px;
+  border: 1px solid rgba(255, 176, 102, 0.45);
+  background: rgba(255, 176, 102, 0.08);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hanoi-verification-panel[hidden] {
+  display: none;
+}
+
+.hanoi-verification-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.hanoi-verification-copy strong {
+  color: var(--accent);
+}
+
+.hanoi-verification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

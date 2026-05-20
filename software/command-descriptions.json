@@ -43,10 +43,6 @@
     "command": "CLOSE",
     "description": "Runs the firmware CLOSE macro. The servo angle is defined in firmware.ino as ANGLE_CLOSE."
   },
-  "servo-bounds": {
-    "command": "M281 O[open] C[close]",
-    "description": "Sets the open and close angles for the gripper servo in RAM. O = open angle, C = close angle."
-  },
   "detach-servo": {
     "command": "M282 P0",
     "description": "Detaches servo P0 by cutting the PWM signal. Useful to avoid idle buzzing or heating."
@@ -79,6 +75,10 @@
     "command": "UP",
     "description": "Runs the firmware UP macro and moves Z to the configured safe height."
   },
+  "firmware-peg0": {
+    "command": "PEG0",
+    "description": "Moves the arm above firmware peg position PEG0."
+  },
   "firmware-peg1": {
     "command": "PEG1",
     "description": "Moves the arm above firmware peg position PEG1."
@@ -86,10 +86,6 @@
   "firmware-peg2": {
     "command": "PEG2",
     "description": "Moves the arm above firmware peg position PEG2."
-  },
-  "firmware-peg3": {
-    "command": "PEG3",
-    "description": "Moves the arm above firmware peg position PEG3."
   },
   "firmware-layer1": {
     "command": "LAYER1",

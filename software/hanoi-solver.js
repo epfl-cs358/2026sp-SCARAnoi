@@ -1,26 +1,63 @@
-// ═══════════════════════════════════════════════════════════════════════════
-//  SCARAnoi — Tower of Hanoi Solver  (hanoi-solver.js)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-//  Depends on:  config.js  (CONFIG, formatNumber, buildAbsoluteMove,
-//               buildServoMove, unitsPerSecondToFeedrate, ikScaraAngles,
-//               ikShortestDelta)
-//  and on app.js globals:  sdAxis, sdConst, diskAngles, simulatedPosition,
-//               xySpeedSlider, zSpeedSlider, wristSpeedSlider,
-//               sendRawGcode, appendLog, hasKnownPosition,
-//               ikGetPegXY, ikGetPlatformBaseZ, ikGetDiskHeight,
-//               ikGetZClearance, ikGetDropZ, ikGetGripZ,
-//               getGripAngleForDisk, getReleaseAngleForDisk,
-//               isXYOutsideWorkspace, IK_ELBOW_SIGN,
-//               DISK_HEIGHT_MM_FALLBACK
-//
-// ═══════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────
 //  HANOI ALGORITHM  (ported from hanoi_solver.py)
 // ─────────────────────────────────────────────
 
-function validateHanoiState(state, expectedDisks = null) {
+function hanoiMaxDisks() {
+  return Math.max(1, Number(CONFIG.hanoi?.maxDisks ?? CONFIG.hanoi?.firmwareMaxLayers ?? CONFIG.hanoi?.numDisks ?? 5));
+}
+
+function hanoiRequiresExactDiskCount() {
+  return Boolean(CONFIG.hanoi?.requireExactDiskCount);
+}
+
+function hanoiExpectedDiskCount() {
+  return hanoiRequiresExactDiskCount() ? Number(CONFIG.hanoi?.numDisks ?? hanoiMaxDisks()) : null;
+}
+
+function hanoiDiskColor(diskId) {
+  const defaults = { 1:"#4caf50", 2:"#ffeb3b", 3:"#f44336", 4:"#e91e63", 5:"#2196f3" };
+  return CONFIG.hanoi?.diskColorsById?.[diskId] || defaults[diskId] || "#888";
+}
+
+function hanoiDiskWidthPercent(diskId) {
+  const maxDisk = Math.max(1, hanoiMaxDisks());
+  const disk = Math.min(Math.max(Number(diskId) || 1, 1), maxDisk);
+  const minWidth = 45;
+  const maxWidth = 92;
+  if (maxDisk === 1) return maxWidth;
+  return minWidth + ((disk - 1) / (maxDisk - 1)) * (maxWidth - minWidth);
+}
+
+function hanoiDiskName(diskId) {
+  const defaults = { 1:"green", 2:"yellow", 3:"red", 4:"pink", 5:"blue" };
+  return CONFIG.hanoi?.diskNamesById?.[diskId] || defaults[diskId] || "";
+}
+
+function cloneHanoiState(state) {
+  return state.map(peg => [...peg]);
+}
+
+function sameHanoiState(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  for (let p = 0; p < a.length; p++) {
+    if (!Array.isArray(a[p]) || !Array.isArray(b[p]) || a[p].length !== b[p].length) return false;
+    for (let i = 0; i < a[p].length; i++) {
+      if (Number(a[p][i]) !== Number(b[p][i])) return false;
+    }
+  }
+  return true;
+}
+
+function setManualInputsFromState(state) {
+  if (!Array.isArray(state)) return;
+  for (let p = 0; p < 3; p++) {
+    const inp = document.getElementById(`hanoiPeg${p}Input`);
+    if (inp) inp.value = Array.isArray(state[p]) ? state[p].join(" ") : "";
+  }
+}
+
+function validateHanoiState(state, expectedDisks = hanoiExpectedDiskCount()) {
   if (!Array.isArray(state) || state.length !== 3) {
     return { ok: false, error: "State must contain exactly 3 pegs." };
   }
@@ -43,8 +80,8 @@ function validateHanoiState(state, expectedDisks = null) {
     all.push(...peg);
   }
 
-  if (expectedDisks !== null && all.length !== expectedDisks) {
-    return { ok: false, error: `Expected ${expectedDisks} disks, detected ${all.length}. Retake the picture or edit manually.` };
+  if (expectedDisks !== null && expectedDisks !== undefined && all.length !== expectedDisks) {
+    return { ok: false, error: `Expected exactly ${expectedDisks} disks, detected ${all.length}. Disable requireExactDiskCount for partial/variant setups.` };
   }
 
   const unique = new Set(all);
@@ -53,9 +90,10 @@ function validateHanoiState(state, expectedDisks = null) {
     return { ok: false, error: `Duplicate disk number(s): ${dup.join(", ")}.` };
   }
 
+  const maxDisk = hanoiMaxDisks();
   for (const d of all) {
-    if (!Number.isInteger(d) || d < 1 || d > 5) {
-      return { ok: false, error: `Invalid disk id ${d}. Expected disk ids 1..5.` };
+    if (!Number.isInteger(d) || d < 1 || d > maxDisk) {
+      return { ok: false, error: `Invalid disk id ${d}. Expected disk ids 1..${maxDisk}.` };
     }
   }
 
@@ -81,12 +119,14 @@ function hanoiSolve(state, target = inferHanoiTargetPeg(state)) {
   const check = validateHanoiState(state);
   if (!check.ok) throw new Error(check.error);
 
-  const work = state.map(p => [...p]);
+  const work = cloneHanoiState(state);
   const moves = [];
   const disks = work.flat();
   if (disks.length === 0) return [];
 
-  const largestDisk = Math.max(...disks);
+  // Do not assume the set is exactly 1..N.
+  // Example: [5, 4, 3] is treated as a valid 3-disk puzzle where 3 is the smallest present disk.
+  const orderedDisks = [...new Set(disks)].sort((a, b) => b - a);
 
   function findPeg(disk) {
     for (let peg = 0; peg < 3; peg++) {
@@ -95,28 +135,34 @@ function hanoiSolve(state, target = inferHanoiTargetPeg(state)) {
     throw new Error(`Disk ${disk} not found.`);
   }
 
-  function moveTopDisks(largest, targetPeg) {
-    if (largest === 0) return;
+  function auxiliaryPeg(a, b) {
+    return [0, 1, 2].find(p => p !== a && p !== b);
+  }
 
-    const currentPeg = findPeg(largest);
+  function moveDiskAndSmaller(diskIndex, targetPeg) {
+    if (diskIndex >= orderedDisks.length) return;
+
+    const disk = orderedDisks[diskIndex];
+    const currentPeg = findPeg(disk);
+
     if (currentPeg === targetPeg) {
-      moveTopDisks(largest - 1, targetPeg);
+      moveDiskAndSmaller(diskIndex + 1, targetPeg);
       return;
     }
 
-    const auxPeg = 3 - currentPeg - targetPeg;
-    moveTopDisks(largest - 1, auxPeg);
+    const auxPeg = auxiliaryPeg(currentPeg, targetPeg);
+    moveDiskAndSmaller(diskIndex + 1, auxPeg);
 
-    const diskLevel = work[currentPeg].indexOf(largest) + 1;
-    work[currentPeg].splice(work[currentPeg].indexOf(largest), 1);
-    work[targetPeg].push(largest);
+    const diskLevel = work[currentPeg].indexOf(disk) + 1;
+    work[currentPeg].splice(work[currentPeg].indexOf(disk), 1);
+    work[targetPeg].push(disk);
     const toLevel = work[targetPeg].length;
-    moves.push({ disk: largest, from: currentPeg, to: targetPeg, diskLevel, toLevel });
+    moves.push({ disk, from: currentPeg, to: targetPeg, diskLevel, toLevel });
 
-    moveTopDisks(largest - 1, targetPeg);
+    moveDiskAndSmaller(diskIndex + 1, targetPeg);
   }
 
-  moveTopDisks(largestDisk, target);
+  moveDiskAndSmaller(0, target);
   return moves;
 }
 
@@ -137,7 +183,7 @@ function firmwarePegCommand(pegIdx) {
 
 function firmwareLayerCommand(level) {
   const prefix = CONFIG.hanoi?.firmwareCommands?.layerPrefix || "LAYER";
-  const n = Math.max(1, Math.min(5, Number(level) || 1));
+  const n = Math.max(1, Math.min(hanoiMaxDisks(), Number(level) || 1));
   return `${prefix}${n}`;
 }
 
@@ -172,12 +218,13 @@ function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
     return { steps: [], error: "Source and target peg are the same." };
   }
 
-  if (diskLevel < 1 || diskLevel > 5) {
-    return { steps: [], error: `Invalid source layer ${diskLevel}. Expected 1..5.` };
+  const maxLayer = hanoiMaxDisks();
+  if (diskLevel < 1 || diskLevel > maxLayer) {
+    return { steps: [], error: `Invalid source layer ${diskLevel}. Expected 1..${maxLayer}.` };
   }
 
-  if (toLevel < 1 || toLevel > 5) {
-    return { steps: [], error: `Invalid target layer ${toLevel}. Expected 1..5.` };
+  if (toLevel < 1 || toLevel > maxLayer) {
+    return { steps: [], error: `Invalid target layer ${toLevel}. Expected 1..${maxLayer}.` };
   }
 
   const fromCmd = firmwarePegCommand(fromPeg);
@@ -284,175 +331,7 @@ async function detectStateFromCamera() {
   }
 }
 
-/**
- * JS port of the Python HSV colour detection.
- * Uses the same HSV_RANGES and disk layout as detectDisque.py.
- */
-function rgbToHsv(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0, s = max === 0 ? 0 : d / max, v = max;
-  if (d !== 0) {
-    switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
-    }
-  }
-  return [h * 180, s * 255, v * 255]; // OpenCV-style H in [0,180]
-}
-
-const HSV_RANGES_JS = {
-  green:  [[[35,  80,  60], [85, 255, 255]]],
-  yellow: [[[18,  50, 130], [35, 255, 255]]],
-  red:    [[[0,  140,  80], [10, 255, 255]], [[170,140,80],[180,255,255]]],
-  pink:   [[[165, 50, 100],[179,135,200]], [[0,50,100],[12,135,200]]],
-  blue:   [[[100,120,  40],[130,255,200]]]
-};
-const DISK_ID_MAP  = { green:1, yellow:2, red:3, pink:4, blue:5 };
-const DISK_COLORS  = ["green","yellow","red","pink","blue"];
-const ROI_BOTTOM   = 0.38;
-const MIN_W_OVER_H = 0.8;
-
-
-function renderCvDetectionPreview(imageData, W, H, detected, state, yBot, third) {
-  const canvas = document.getElementById("cvSnapshotCanvas");
-  const summary = document.getElementById("cvDetectionSummary");
-  if (!canvas) return;
-
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-  ctx.putImageData(imageData, 0, 0);
-
-  ctx.save();
-  ctx.lineWidth = Math.max(2, Math.round(W / 320));
-  ctx.font = `${Math.max(14, Math.round(W / 38))}px sans-serif`;
-
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-  ctx.beginPath();
-  ctx.moveTo(third, 0); ctx.lineTo(third, yBot);
-  ctx.moveTo(2 * third, 0); ctx.lineTo(2 * third, yBot);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(255, 160, 0, 0.9)";
-  ctx.beginPath();
-  ctx.moveTo(0, yBot); ctx.lineTo(W, yBot);
-  ctx.stroke();
-
-  const colors = {
-    green: "#00d26a",
-    yellow: "#ffd43b",
-    red: "#ff4d4d",
-    pink: "#ff5ac8",
-    blue: "#4dabf7"
-  };
-
-  for (const d of detected) {
-    const x = d.cx - d.w / 2;
-    const y = d.cy - d.h / 2;
-    const c = colors[d.color] || "#ffffff";
-    ctx.strokeStyle = c;
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-    ctx.strokeRect(x, y, d.w, d.h);
-    const label = `D${d.id} ${d.color}`;
-    const tw = ctx.measureText(label).width + 10;
-    ctx.fillRect(x, Math.max(0, y - 24), tw, 22);
-    ctx.fillStyle = c;
-    ctx.fillText(label, x + 5, Math.max(16, y - 7));
-  }
-
-  ctx.restore();
-
-  if (summary) {
-    summary.textContent = state
-      ? state.map((peg, i) => `Peg ${i}: [${peg.join(", ") || "empty"}]`).join("   ")
-      : "No detection yet.";
-  }
-}
-
-function runColorDetection(imageData, W, H) {
-  const data  = imageData.data;
-  const yBot  = Math.floor(H * (1 - ROI_BOTTOM));
-  const numPegs = 3;
-  const third   = W / numPegs;
-
-  const detected = [];
-
-  for (const color of DISK_COLORS) {
-    // Build per-pixel mask
-    const mask = new Uint8Array(W * H);
-    for (let y = 0; y < yBot; y++) {
-      for (let x = 0; x < W; x++) {
-        const i = (y * W + x) * 4;
-        const [h, s, v] = rgbToHsv(data[i], data[i+1], data[i+2]);
-        for (const [[hl,sl,vl],[hh,sh,vh]] of HSV_RANGES_JS[color]) {
-          if (h >= hl && h <= hh && s >= sl && s <= sh && v >= vl && v <= vh) {
-            mask[y * W + x] = 255;
-            break;
-          }
-        }
-      }
-    }
-
-    // Find bounding rect of largest blob using flood-fill approach
-    let best = null, bestArea = 300;
-    // Scan connected components (simplified: row-scan bounding boxes)
-    let inBlob = false, bx0 = 0, bx1 = 0, by0 = 0, by1 = 0, area = 0;
-    const visited = new Uint8Array(W * H);
-    for (let y = 0; y < yBot; y++) {
-      for (let x = 0; x < W; x++) {
-        if (mask[y * W + x] && !visited[y * W + x]) {
-          // BFS
-          const queue = [[x, y]];
-          visited[y * W + x] = 1;
-          let minX = x, maxX = x, minY = y, maxY = y, cnt = 0;
-          let qi = 0;
-          while (qi < queue.length) {
-            const [cx, cy] = queue[qi++];
-            cnt++;
-            if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
-            if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
-            for (const [nx, ny] of [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]]) {
-              if (nx >= 0 && nx < W && ny >= 0 && ny < yBot && mask[ny*W+nx] && !visited[ny*W+nx]) {
-                visited[ny*W+nx] = 1;
-                queue.push([nx, ny]);
-              }
-            }
-          }
-          const bw = maxX - minX + 1, bh = maxY - minY + 1;
-          if (cnt > bestArea && bh > 0 && (bw / bh) >= MIN_W_OVER_H) {
-            bestArea = cnt;
-            best = { cx: Math.round((minX+maxX)/2), cy: Math.round((minY+maxY)/2), w: bw, h: bh };
-          }
-        }
-      }
-    }
-
-    if (best) {
-      detected.push({ id: DISK_ID_MAP[color], color, ...best });
-    }
-  }
-
-  // Assign to towers: rightmost zone → peg0, middle → peg1, leftmost → peg2
-  // (mirrors the Python logic: zone = cx // third, pegIdx = (NUM_TOWERS-1) - zone)
-  const buckets = [[], [], []];
-  for (const d of detected) {
-    const zone = Math.min(Math.floor(d.cx / third), numPegs - 1);
-    const pegIdx = (numPegs - 1) - zone;
-    buckets[pegIdx].push(d);
-  }
-
-  // Sort each bucket bottom→top (highest cy = lowest in image = bottom)
-  const state = buckets.map(b => {
-    b.sort((a, b) => b.cy - a.cy);
-    return b.map(d => d.id);
-  });
-
-  renderCvDetectionPreview(imageData, W, H, detected, state, yBot, third);
-  return state;
-}
+// Browser-side HSV detection was removed. The active CV path is cv_server.py + detectDisque.py.
 
 // ─────────────────────────────────────────────
 //  SOLVER STATE MACHINE
@@ -466,25 +345,142 @@ let hanoiRunning       = false;
 let hanoiPaused        = false;
 let hanoiFullAuto      = false;  // true = Run all (no confirms)
 let hanoiLiveState     = null;   // simulated tower state, updated after each completed move
+let hanoiVerificationPending = null;
 const HANOI_STEP_DELAY_MS = CONFIG.hanoi?.autoStepDelayMs ?? 2000;
+const HANOI_VERIFY_DELAY_MS = CONFIG.hanoi?.verifyDelayMs ?? HANOI_STEP_DELAY_MS;
+
+function hanoiDelay(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return Promise.resolve();
+  return new Promise(resolve => setTimeout(resolve, n));
+}
+
+function hanoiShouldVerifyAfterMove() {
+  return CONFIG.hanoi?.verifyAfterEachMove !== false;
+}
+
+function computeExpectedStateAfterMove(stateBefore, move) {
+  const next = cloneHanoiState(stateBefore);
+  const fromStack = next[move.from];
+  const toStack = next[move.to];
+  const idx = fromStack.indexOf(move.disk);
+  if (idx !== -1) fromStack.splice(idx, 1);
+  toStack.push(move.disk);
+  return next;
+}
+
+function updateHanoiVerificationPanel() {
+  const panel = document.getElementById("hanoiVerificationPanel");
+  if (!panel) return;
+
+  const title = document.getElementById("hanoiVerificationTitle");
+  const body = document.getElementById("hanoiVerificationBody");
+  const redoBtn = document.getElementById("hanoiRedoMoveBtn");
+  const ignoreBtn = document.getElementById("hanoiIgnoreVerificationBtn");
+
+  if (!hanoiVerificationPending) {
+    panel.hidden = true;
+    if (redoBtn) redoBtn.disabled = true;
+    if (ignoreBtn) ignoreBtn.disabled = true;
+    return;
+  }
+
+  const { move, expectedState, detectedState, reason } = hanoiVerificationPending;
+  panel.hidden = false;
+  if (redoBtn) redoBtn.disabled = false;
+  if (ignoreBtn) ignoreBtn.disabled = false;
+
+  if (title) title.textContent = reason === "cv-error" ? "CV check failed after action" : "CV mismatch after action";
+  if (body) {
+    body.innerHTML = `
+      <div><strong>Previous action:</strong> Disk ${move.disk} ${uiPegLabel(move.from)} → ${uiPegLabel(move.to)}</div>
+      <div><strong>Expected:</strong> ${escapeHtml(formatDetectedState(expectedState))}</div>
+      <div><strong>Detected:</strong> ${escapeHtml(detectedState ? formatDetectedState(detectedState) : "No usable CV state.")}</div>
+    `;
+  }
+}
+
+function clearHanoiVerification() {
+  hanoiVerificationPending = null;
+  updateHanoiVerificationPanel();
+}
+
+function pauseForHanoiVerification(move, expectedState, detectedState, reason, wasFullAuto) {
+  hanoiVerificationPending = { move, expectedState, detectedState, reason, wasFullAuto };
+  hanoiRunning = false;
+  hanoiPaused = true;
+  hanoiFullAuto = false;
+  pendingExecution = null;
+  clearPreviewPosition();
+  updateHanoiVerificationPanel();
+  updateHanoiUI();
+}
+
+async function verifyHanoiMoveIfNeeded(move, expectedState) {
+  if (!hanoiShouldVerifyAfterMove()) return true;
+
+  const wasFullAuto = hanoiFullAuto;
+  appendLog("; Hanoi: checking camera after completed action…");
+  const detected = await detectStateFromCamera();
+
+  if (detected && sameHanoiState(detected, expectedState)) {
+    appendLog("; ✓ CV check OK. Detected state matches the expected state.");
+    setManualInputsFromState(detected);
+    return true;
+  }
+
+  const reason = detected ? "mismatch" : "cv-error";
+  if (detected) {
+    appendLog(`! CV mismatch after action. Expected ${formatDetectedState(expectedState)} but detected ${formatDetectedState(detected)}.`);
+    renderHanoiState(detected);
+    setManualInputsFromState(detected);
+  } else {
+    appendLog("! CV check failed after action. Choose whether to redo the previous action or ignore and proceed.");
+  }
+
+  pauseForHanoiVerification(move, expectedState, detected, reason, wasFullAuto);
+  return false;
+}
+
+function hanoiRedoPreviousMove() {
+  if (!hanoiVerificationPending) return;
+
+  const { move, wasFullAuto } = hanoiVerificationPending;
+  clearHanoiVerification();
+
+  hanoiCurrentStep = move.steps[0]?.label === "Initialize arm from home" ? 1 : 0;
+  hanoiRunning = true;
+  hanoiPaused = false;
+  hanoiFullAuto = wasFullAuto;
+
+  appendLog(`; Hanoi: redoing previous action — Disk ${move.disk} ${uiPegLabel(move.from)} → ${uiPegLabel(move.to)}.`);
+  renderHanoiQueue();
+  updateHanoiUI();
+  hanoiQueueNextSubStep();
+}
+
+function hanoiIgnoreVerificationAndProceed() {
+  if (!hanoiVerificationPending) return;
+
+  const { expectedState, wasFullAuto } = hanoiVerificationPending;
+  clearHanoiVerification();
+
+  hanoiLiveState = cloneHanoiState(expectedState);
+  hanoiCurrentMove++;
+  hanoiCurrentStep = 0;
+  hanoiRunning = true;
+  hanoiPaused = false;
+  hanoiFullAuto = wasFullAuto;
+
+  appendLog("; Hanoi: CV warning ignored. Continuing from the expected solver state.");
+  renderHanoiState(hanoiLiveState);
+  renderHanoiQueue();
+  updateHanoiUI();
+  hanoiQueueNextSubStep();
+}
 
 function hanoiHasPendingWork() {
   return hanoiMoveQueue.length > 0 && hanoiCurrentMove < hanoiMoveQueue.length;
-}
-
-async function hanoiExecuteCurrentStep() {
-  const move = hanoiMoveQueue[hanoiCurrentMove];
-  if (!move || move.error) return;
-
-  const step = move.steps[hanoiCurrentStep];
-  const moveLabel = `Move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}: Disk ${move.disk} ${uiPegLabel(move.from)}→${uiPegLabel(move.to)}`;
-
-  clearPreviewPosition();
-  appendLog(`; [Hanoi] ${moveLabel} — ${step.label}`);
-  appendLog(step.gcode);
-  console.log(`[Hanoi] ${moveLabel} — ${step.label}\n${step.gcode}`);
-  await sendRawGcode(step.gcode, `Hanoi ${step.label}`);
-  hanoiCurrentStep++;
 }
 
 function hanoiReset() {
@@ -496,7 +492,9 @@ function hanoiReset() {
   hanoiPaused      = false;
   hanoiFullAuto    = false;
   hanoiLiveState   = null;
+  hanoiVerificationPending = null;
   clearPreviewPosition();
+  updateHanoiVerificationPanel();
   renderHanoiQueue();
   updateHanoiUI();
 }
@@ -506,8 +504,7 @@ function hanoiReset() {
  * Returns error string if prerequisites are missing, null on success.
  */
 function hanoiBuild(state) {
-  const expected = CONFIG.hanoi?.numDisks ?? (state.flat().length || null);
-  const validity = validateHanoiState(state, expected);
+  const validity = validateHanoiState(state, hanoiExpectedDiskCount());
   if (!validity.ok) return validity.error;
 
   // Movement calibration now lives inside the Arduino firmware.
@@ -534,7 +531,7 @@ function hanoiBuild(state) {
 
   hanoiCurrentMove = 0;
   hanoiCurrentStep = 0;
-  hanoiLiveState   = state.map(peg => [...peg]);
+  hanoiLiveState   = cloneHanoiState(state);
   appendLog(`; Hanoi target peg: ${uiPegLabel(targetPeg)}.`);
   return null;
 }
@@ -554,7 +551,20 @@ async function hanoiExecuteCurrentStep() {
   appendLog(`; [Hanoi] ${moveLabel} — ${step.label}`);
   appendLog(step.gcode);
   console.log(`[Hanoi] ${moveLabel} — ${step.label}\n${step.gcode}`);
-  await sendRawGcode(step.gcode, `Hanoi ${step.label}`);
+
+  const sentOk = await sendRawGcode(step.gcode, `Hanoi ${step.label}`, {
+    expectOk: false
+  });
+  if (!sentOk) {
+    hanoiRunning = false;
+    hanoiPaused = hanoiHasPendingWork();
+    hanoiFullAuto = false;
+    pendingExecution = null;
+    appendLog("! Hanoi paused because the bridge could not send this step.");
+    updateHanoiUI();
+    return false;
+  }
+
   hanoiCurrentStep++;
   return true;
 }
@@ -586,13 +596,33 @@ async function hanoiQueueNextSubStep() {
 
   if (hanoiCurrentStep >= move.steps.length) {
     if (hanoiLiveState) {
-      const diskId = move.disk;
-      const fromPeg = move.from, toPeg = move.to;
-      const fi = hanoiLiveState[fromPeg].indexOf(diskId);
-      if (fi !== -1) hanoiLiveState[fromPeg].splice(fi, 1);
-      hanoiLiveState[toPeg].push(diskId);
+      const expectedState = computeExpectedStateAfterMove(hanoiLiveState, move);
+
+      const synced = await syncWorkspaceAfterHanoiMove();
+      if (!synced) {
+        hanoiRunning = false;
+        hanoiPaused = true;
+        hanoiFullAuto = false;
+        pendingExecution = null;
+        appendLog("! Hanoi paused because the firmware did not confirm motion completion / M114 sync.");
+        updateHanoiUI();
+        return;
+      }
+
+      if (hanoiShouldVerifyAfterMove() && HANOI_VERIFY_DELAY_MS > 0) {
+        appendLog(`; Hanoi: waiting ${HANOI_VERIFY_DELAY_MS} ms for camera settling before CV verification…`);
+        await hanoiDelay(HANOI_VERIFY_DELAY_MS);
+        if (!hanoiRunning) return;
+      }
+
+      const verified = await verifyHanoiMoveIfNeeded(move, expectedState);
+      if (!verified) return;
+
+      hanoiLiveState = expectedState;
       renderHanoiState(hanoiLiveState);
+      setManualInputsFromState(hanoiLiveState);
     }
+
     hanoiCurrentMove++;
     hanoiCurrentStep = 0;
     renderHanoiQueue();
@@ -619,14 +649,20 @@ async function hanoiQueueNextSubStep() {
   updateHanoiUI();
 
   if (hanoiFullAuto) {
-    await hanoiExecuteCurrentStep();
-    if (!hanoiRunning) return;
-    await new Promise(resolve => setTimeout(resolve, HANOI_STEP_DELAY_MS));
+    const sentOk = await hanoiExecuteCurrentStep();
+    if (!sentOk || !hanoiRunning) return;
+
+    // Between substeps, use the normal movement gap. After the final substep,
+    // hanoiQueueNextSubStep() will apply HANOI_VERIFY_DELAY_MS before CV.
+    const justFinishedMove = hanoiCurrentStep >= move.steps.length;
+    if (!justFinishedMove) await hanoiDelay(HANOI_STEP_DELAY_MS);
+
     if (!hanoiRunning) return;
     await hanoiQueueNextSubStep();
   } else {
     pendingExecution = async () => {
-      await hanoiExecuteCurrentStep();
+      const sentOk = await hanoiExecuteCurrentStep();
+      if (!sentOk) return;
       updatePreviewBanner(bannerLabel);
       await hanoiQueueNextSubStep();
     };
@@ -689,6 +725,20 @@ function hanoiStop() {
   updateHanoiUI();
 }
 
+async function syncWorkspaceAfterHanoiMove() {
+  if (typeof sendRawGcode !== "function") return true;
+
+  const command = CONFIG.hanoi?.completionSyncCommand || "M400\nM114";
+  const timeoutSeconds = Number(CONFIG.hanoi?.completionTimeoutSeconds ?? 45);
+
+  appendLog("; Hanoi: waiting for firmware completion and syncing graph with M114…");
+  return await sendRawGcode(command, "Hanoi completion sync", {
+    expectOk: true,
+    waitForPosition: true,
+    timeoutSeconds
+  });
+}
+
 // ─────────────────────────────────────────────
 //  UI — RENDER QUEUE
 // ─────────────────────────────────────────────
@@ -711,8 +761,7 @@ function renderHanoiQueue() {
     const card = document.createElement("div");
     card.className = `hanoi-move-card ${isPast ? "hanoi-done" : ""} ${isCurrent ? "hanoi-active" : ""}`;
 
-    const diskColors = ["","#4caf50","#ffeb3b","#f44336","#e91e63","#2196f3"];
-    const diskColor  = diskColors[move.disk] || "#ccc";
+    const diskColor = hanoiDiskColor(move.disk);
 
     card.innerHTML = `
       <div class="hanoi-move-header">
@@ -746,8 +795,6 @@ function renderHanoiQueue() {
 
 function renderHanoiState(state) {
   const pegLabels = ["Peg 0", "Peg 1", "Peg 2"];
-  const diskColors = { 1:"#4caf50", 2:"#ffeb3b", 3:"#f44336", 4:"#e91e63", 5:"#2196f3" };
-  const diskNames  = { 1:"green", 2:"yellow", 3:"red", 4:"pink", 5:"blue" };
 
   const container = document.getElementById("hanoiStateViz");
   if (!container) return;
@@ -759,8 +806,8 @@ function renderHanoiState(state) {
       <div class="hanoi-peg-label">${pegLabels[pi]}</div>
       <div class="hanoi-peg-disks">
         ${[...peg].reverse().map(d => `
-          <div class="hanoi-disk-chip" style="background:${diskColors[d]||"#888"}">
-            ${d} ${diskNames[d]||""}
+          <div class="hanoi-disk-chip" style="background:${hanoiDiskColor(d)}; width:${hanoiDiskWidthPercent(d)}%">
+            ${d} ${hanoiDiskName(d)}
           </div>`).join("") || "<div class='hanoi-peg-empty'>empty</div>"}
       </div>
       <div class="hanoi-peg-pole"></div>
@@ -776,20 +823,22 @@ function updateHanoiUI() {
   const hasMoves  = hanoiMoveQueue.length > 0;
   const isDone    = hanoiCurrentMove >= hanoiMoveQueue.length && hasMoves;
   const isPending = typeof pendingExecution === "function";
+  const needsVerificationDecision = Boolean(hanoiVerificationPending);
 
   const btn = id => document.getElementById(id);
-  if (btn("hanoiRunBtn"))    btn("hanoiRunBtn").disabled    = !hasMoves || isDone;
-  if (btn("hanoiApproveBtn")) btn("hanoiApproveBtn").disabled = !hasMoves || isDone;
-  if (btn("hanoiResumeBtn")) btn("hanoiResumeBtn").disabled = !hanoiPaused;
-  if (btn("hanoiStopBtn"))   btn("hanoiStopBtn").disabled   = !hanoiRunning && !isPending && !hanoiPaused;
+  if (btn("hanoiRunBtn"))    btn("hanoiRunBtn").disabled    = !hasMoves || isDone || needsVerificationDecision;
+  if (btn("hanoiApproveBtn")) btn("hanoiApproveBtn").disabled = !hasMoves || isDone || needsVerificationDecision;
+  if (btn("hanoiResumeBtn")) btn("hanoiResumeBtn").disabled = !hanoiPaused || needsVerificationDecision;
+  if (btn("hanoiStopBtn"))   btn("hanoiStopBtn").disabled   = (!hanoiRunning && !isPending && !hanoiPaused) || needsVerificationDecision;
   if (btn("hanoiResetBtn"))  btn("hanoiResetBtn").disabled  = false;
-  if (btn("hanoiSolveBtn"))  btn("hanoiSolveBtn").disabled  = hanoiRunning;
-  if (btn("hanoiDetectBtn")) btn("hanoiDetectBtn").disabled = hanoiRunning;
-  if (btn("hanoiDetectSolveBtn")) btn("hanoiDetectSolveBtn").disabled = hanoiRunning;
+  if (btn("hanoiSolveBtn"))  btn("hanoiSolveBtn").disabled  = hanoiRunning || needsVerificationDecision;
+  if (btn("hanoiDetectBtn")) btn("hanoiDetectBtn").disabled = hanoiRunning || needsVerificationDecision;
+  if (btn("hanoiDetectSolveBtn")) btn("hanoiDetectSolveBtn").disabled = hanoiRunning || needsVerificationDecision;
 
   const statusEl = document.getElementById("hanoiStatus");
   if (statusEl) {
-    if (isDone)             statusEl.textContent = "✓ Complete";
+    if (needsVerificationDecision) statusEl.textContent = "CV check needs decision";
+    else if (isDone)        statusEl.textContent = "✓ Complete";
     else if (hanoiFullAuto && hanoiRunning) statusEl.textContent = `Running successively — move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}…`;
     else if (isPending)     statusEl.textContent = `Awaiting confirm — move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}`;
     else if (hanoiPaused)   statusEl.textContent = `Paused — move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}`;
@@ -808,8 +857,10 @@ function readManualState() {
     const raw = document.getElementById(`hanoiPeg${p}Input`)?.value.trim();
     if (!raw) continue;
     raw.split(/[\s,]+/).filter(Boolean).forEach(token => {
-      const n = parseInt(token, 10);
-      if (n >= 1 && n <= 5) state[p].push(n);
+      // Keep invalid tokens as NaN so validateHanoiState() can show an error
+      // instead of silently dropping the user's input.
+      const n = Number(token);
+      state[p].push(Number.isInteger(n) ? n : NaN);
     });
   }
   return state;
@@ -831,17 +882,13 @@ function setupHanoiSolver() {
         hanoiState = state;
         renderHanoiState(state);
         // Fill manual inputs too
-        for (let p = 0; p < 3; p++) {
-          const inp = document.getElementById(`hanoiPeg${p}Input`);
-          if (inp) inp.value = state[p].join(" ");
-        }
+        setManualInputsFromState(state);
         appendLog(`; Hanoi detect OK: ${state.map((s,i)=>`Peg${i + 1}=[${s}]`).join(" ")}`);
       }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "Detect only"; }
     }
   });
-
 
   // Capture + solve: closest browser equivalent to pressing SPACE in the Python OpenCV demo.
   // It captures one frame, annotates it, fills the peg state, and builds the G-code queue.
@@ -856,10 +903,7 @@ function setupHanoiSolver() {
 
       hanoiState = state;
       renderHanoiState(state);
-      for (let p = 0; p < 3; p++) {
-        const inp = document.getElementById(`hanoiPeg${p}Input`);
-        if (inp) inp.value = state[p].join(" ");
-      }
+      setManualInputsFromState(state);
 
       const err = hanoiBuild(state);
       if (err) { appendLog(`! Hanoi: ${err}`); return; }
@@ -913,7 +957,7 @@ function setupHanoiSolver() {
     hanoiQueueNextSubStep();
   });
 
-  // Execute steps successively — fully automatic, 2-second gap between steps
+  // Execute steps successively — fully automatic; timing is controlled by CONFIG.hanoi
   document.getElementById("hanoiRunBtn")?.addEventListener("click", hanoiExecuteSuccessively);
 
   // Execute steps after approval — confirm each step before sending
@@ -924,6 +968,10 @@ function setupHanoiSolver() {
 
   // Stop — abort current sequence (pending confirm or auto-run)
   document.getElementById("hanoiStopBtn")?.addEventListener("click", hanoiStop);
+
+  document.getElementById("hanoiRedoMoveBtn")?.addEventListener("click", hanoiRedoPreviousMove);
+  document.getElementById("hanoiIgnoreVerificationBtn")?.addEventListener("click", hanoiIgnoreVerificationAndProceed);
+  updateHanoiVerificationPanel();
 
   // Reset
   document.getElementById("hanoiResetBtn")?.addEventListener("click", () => {

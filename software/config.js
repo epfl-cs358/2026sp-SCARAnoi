@@ -1,11 +1,11 @@
 const CONFIG = {
-  // The ESP32 is connected as a normal Wi-Fi client on SPOT-iot.
-  // Change this from the interface if the router gives the ESP32 another IP.
   espIp: localStorage.getItem("scaranoiEspIp") || "172.21.76.162",
 
-  // Python OpenCV bridge. Run cv_server.py and open http://localhost:5000.
-  // The camera panel uses this annotated stream instead of the raw ESP32 stream.
+  // Python OpenCV + Arduino USB bridge. Run cv_server.py and open http://localhost:5000.
   cvServerUrl: localStorage.getItem("scaranoiCvServerUrl") || "http://localhost:5000",
+
+  // Robot command endpoint. 
+  robotControlUrl: localStorage.getItem("scaranoiRobotControlUrl") || "http://localhost:5000",
 
   arm: {
     link1: 185.412,
@@ -14,19 +14,35 @@ const CONFIG = {
     displayScale: 0.55
   },
 
-  // Firmware-owned Hanoi coordinates/macros.
-  // The solver now sends these text commands directly to the firmware instead of
-  // generating raw peg X/Y/Z/servo values in the browser.
   hanoi: {
+    maxDisks: 5,
+    // Keep this false if you want to solve partial/variant setups such as [5 4 3].
+    requireExactDiskCount: false,
     numDisks: 5,
+    // After each completed disk transfer, capture CV again and compare it with the expected state.
+    verifyAfterEachMove: true,
     targetPegWhenNotSolved: 2,
     targetPegWhenAlreadyOnRight: 0,
-    autoStepDelayMs: 2000,
+    // With M400/M114 sync, this only needs to be a short camera-settle delay.
+    verifyDelayMs: 300,
+    // Small gap between substeps. The Arduino queues commands and M400 syncs after each full disk move.
+    autoStepDelayMs: 300,
+    completionSyncCommand: "M400\nM114",
+    completionTimeoutSeconds: 45,
 
+    // Real peg centers used for drawing the yellow peg markers.
     firmwarePegs: [
-      { name: "PEG0", x: 72,  y: 220 },
-      { name: "PEG1", x: -2,  y: 195 },
-      { name: "PEG2", x: -87, y: 230 }
+      { name: "PEG0", x: -100, y: 275 },
+      { name: "PEG1", x: 18,   y: 275 },
+      { name: "PEG2", x: 145,  y: 275 }
+    ],
+
+    // Coordinates reached by the firmware PEG0/PEG1/PEG2 macros at Z_UP.
+    // These should match X_PEG*_UP / Y_PEG*_UP in the Arduino firmware.
+    firmwarePegUpPositions: [
+      { name: "PEG0", x: -95, y: 275 },
+      { name: "PEG1", x: 22,  y: 265 },
+      { name: "PEG2", x: 140, y: 258 }
     ],
 
     firmwareCommands: {
@@ -39,7 +55,7 @@ const CONFIG = {
     },
 
     firmwareServo: {
-      openAngle: 100,
+      openAngle: 120,
       closeAngle: 0
     }
   },
@@ -61,7 +77,8 @@ const CONFIG = {
     checkEndstops: "M119",
     enableMotors: "M17",
     disableMotors: "M18",
-    emergencyStop: "M112"
+    emergencyStop: "M112",
+    homeSyncDelayMs: 3000
   }
 };
 
@@ -74,7 +91,8 @@ function setEspIp(ip) {
 }
 
 function getControlBaseUrl() {
-  return `http://${CONFIG.espIp}`;
+  const clean = String(CONFIG.robotControlUrl || "").trim().replace(/\/$/, "");
+  return clean || getCvServerBaseUrl();
 }
 
 function getStreamUrl() {
@@ -170,10 +188,6 @@ function buildServoMove(angle) {
   return `M280 P0 S${formatNumber(angle)}`;
 }
 
-// Firmware M281 uses O=open angle, C=close angle.
-function buildServoBounds(minAngle, maxAngle) {
-  return `M281 O${formatNumber(minAngle)} C${formatNumber(maxAngle)}`;
-}
 
 function getActionGcode(action, values) {
   const xyFeedrate = unitsPerSecondToFeedrate(values.xySpeed);
@@ -250,6 +264,11 @@ function getActionGcode(action, values) {
       gcode: CONFIG.hanoi.firmwareCommands.up
     },
 
+    "firmware-peg0": {
+      label: "Go to PEG0",
+      gcode: "PEG0"
+    },
+
     "firmware-peg1": {
       label: "Go to PEG1",
       gcode: "PEG1"
@@ -258,11 +277,6 @@ function getActionGcode(action, values) {
     "firmware-peg2": {
       label: "Go to PEG2",
       gcode: "PEG2"
-    },
-
-    "firmware-peg3": {
-      label: "Go to PEG3",
-      gcode: "PEG3"
     },
 
     "firmware-layer1": {
@@ -288,11 +302,6 @@ function getActionGcode(action, values) {
     "firmware-layer5": {
       label: "Go to LAYER5",
       gcode: "LAYER5"
-    },
-
-    "servo-bounds": {
-      label: "Servo Bounds",
-      gcode: buildServoBounds(values.servoMin, values.servoMax)
     },
 
     "detach-servo": {

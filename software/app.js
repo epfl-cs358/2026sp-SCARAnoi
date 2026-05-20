@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────────
-// DOM REFS
-// ─────────────────────────────────────────────
-
 const xySpeedSlider   = document.getElementById("xySpeedSlider");
 const zSpeedSlider    = document.getElementById("zSpeedSlider");
 const wristSpeedSlider = document.getElementById("wristSpeedSlider");
@@ -21,8 +17,6 @@ const zStepInput     = document.getElementById("zStep");
 const wristStepInput = document.getElementById("wristStep");
 const servoStepInput = document.getElementById("servoStep");
 
-const servoMinInput = document.getElementById("servoMin");
-const servoMaxInput = document.getElementById("servoMax");
 
 const absXInput = document.getElementById("absX");
 const absYInput = document.getElementById("absY");
@@ -60,21 +54,10 @@ let tooltipsEnabled    = true;
 let commandDescriptions = {};
 let positioningMode    = "absolute";
 let simulatedPosition  = null;
-let currentServoAngle  = null;   // tracks last sent servo angle for jog ±
-let simMode            = false;  // offline simulation — no real fetch
+let currentServoAngle  = null;   
 
 let previewPosition  = null;
 let pendingExecution = null;
-
-function seedInitialWorkspacePose() {
-  // Firmware initialises: shoulderDeg=-87, elbowDeg=-82, z=0, e=-137
-  // FK: x = L1*sin(θ) + L2*sin(θ+ψ),  y = L1*cos(θ) + L2*cos(θ+ψ)
-  const θ = -87 * Math.PI / 180, ψ = -82 * Math.PI / 180;
-  const l1 = CONFIG.arm.link1, l2 = CONFIG.arm.link2;
-  const x = l1 * Math.sin(θ) + l2 * Math.sin(θ + ψ);
-  const y = l1 * Math.cos(θ) + l2 * Math.cos(θ + ψ);
-  setSimulatedPosition(x, y, 0, -137);
-}
 
 // ─────────────────────────────────────────────
 // UTILITIES
@@ -119,9 +102,7 @@ function getUiValues() {
     xyStep:     Number(xyStepInput.value),
     zStep:      Number(zStepInput.value),
     wristStep:  Number(wristStepInput.value),
-    servoStep:  Number(servoStepInput?.value ?? 5),
-    servoMin:   Number(servoMinInput.value),
-    servoMax:   Number(servoMaxInput.value)
+    servoStep:  Number(servoStepInput?.value ?? 5)
   };
 }
 
@@ -209,99 +190,103 @@ function setupCommandTooltips() {
 }
 
 // ─────────────────────────────────────────────
-// NETWORK / GCODE SEND  (with offline sim mode)
+// NETWORK / GCODE SEND
 // ─────────────────────────────────────────────
 
-function buildSimulatedM114Response() {
-  if (!hasKnownPosition()) return "X:0.000 Y:0.000 Z:0.000 E:0.000  Joints theta:0.000 psi:0.000  steps S:0 P:0 Z:0 E:0";
-  const p = simulatedPosition;
-  const l1 = CONFIG.arm.link1, l2 = CONFIG.arm.link2;
-  // Firmware IK: atan2(px, py) convention — matches ikScaraAngles in app
-  let c2 = (p.x*p.x + p.y*p.y - l1*l1 - l2*l2) / (2*l1*l2);
-  c2 = Math.max(-1, Math.min(1, c2));
-  const IK_ELBOW_SIGN = -1;
-  const s2 = IK_ELBOW_SIGN * Math.sqrt(Math.max(0, 1 - c2*c2));
-  const psi   = Math.atan2(s2, c2);
-  const theta = Math.atan2(p.x, p.y) - Math.atan2(l2*s2, l1 + l2*c2);
-  const sDeg = (theta * 180 / Math.PI).toFixed(3);
-  const eDeg = (psi   * 180 / Math.PI).toFixed(3);
-  return `X:${p.x.toFixed(3)} Y:${p.y.toFixed(3)} Z:${p.z.toFixed(3)} E:${p.e.toFixed(3)}  Joints theta:${sDeg} psi:${eDeg}  steps S:0 P:0 Z:0 E:0\nok`;
-}
+function parseCommandResponse(text) {
+  const response = String(text || "");
+  const lower = response.toLowerCase();
 
-function buildSimulatedResponse(gcode) {
-  const upper = gcode.trim().toUpperCase();
-  if (upper.startsWith("M114")) return buildSimulatedM114Response();
-  if (upper.startsWith("M119")) return "x_min: open\nx_max: open\ny_min: open\ny_max: open\nz_min: open\nz_max: open\nok";
-  if (upper.startsWith("M280")) {
-    const m = gcode.match(/S([\d.]+)/i);
-    return m ? `echo: servo P0 set to ${m[1]}\nok` : "ok";
+  const hasFailure = /\b(error|failed|failure|fatal|timeout)\b/i.test(response)
+    || /no response/i.test(response)
+    || /unable to receive/i.test(response)
+    || /did not receive/i.test(response);
+
+  if (hasFailure) {
+    return {
+      ok: false,
+      reason: "Arduino/ESP reported an error, failure, or timeout.",
+    };
   }
-  if (upper.startsWith("M281")) return `echo: gripper bounds updated\nok`;
-  if (upper.startsWith("M282")) return "echo: servo P0 detached\nok";
-  if (upper.startsWith("M17"))  return "ok";
-  if (upper.startsWith("M18") || upper.startsWith("M84")) return "ok";
-  if (upper.startsWith("M112")) return "error: emergency stop";
-  if (upper.startsWith("M999")) return "echo: emergency stop cleared\nok";
-  if (upper.startsWith("G28"))  return "echo: homing complete\nok";
-  if (upper.startsWith("M503")) return "SCARAnoi custom firmware settings\nok";
-  if (upper.startsWith("M360")) return "ok";
-  if (upper.startsWith("G90") || upper.startsWith("G91")) return "ok";
-  if (upper.startsWith("G92")) return "ok";
-  if (upper.match(/^G0\b/) || upper.match(/^G1\b/)) return "ok";
-  return "ok";
+
+  const hasOk = /\bok\b/i.test(response);
+
+  if (hasOk) {
+    return {
+      ok: true,
+      reason: "Arduino acknowledged the command.",
+    };
+  }
+
+  return {
+    ok: false,
+    reason: "No Arduino ok was found in the response.",
+  };
 }
 
-async function sendRawGcode(gcode, label) {
+function commandResponseFinishedOk(text) {
+  return parseCommandResponse(text).ok;
+}
+
+async function sendRawGcode(gcode, label, options = {}) {
   const lines = gcode.split("\n").map(l => l.trim()).filter(l => l);
+  const waitForPosition = Boolean(options.waitForPosition);
+  const expectOk = Boolean(options.expectOk || waitForPosition);
+  const timeoutSeconds = Number(options.timeoutSeconds ?? 2);
 
-  if (simMode) {
-    // ── Simulation mode: apply to local state, log richly, no fetch ──
-    for (const line of lines) {
-      logBox.innerHTML += `\n<span class="log-sim">[SIM] &gt; ${escapeHtml(line)}</span>`;
-    }
-    logBox.scrollTop = logBox.scrollHeight;
-    lastCommandEl.textContent = `[SIM] ${label} — ${gcode.replace(/\n/g, " | ")}`;
-
-    applyGcodeToSimulation(gcode);
-
-    // Build a realistic simulated response
-    const simResp = buildSimulatedResponse(lines[lines.length - 1]);
-    logBox.innerHTML += `\n<span class="log-sim-response">[SIM] &lt; ${escapeHtml(simResp)}</span>`;
-    logBox.scrollTop = logBox.scrollHeight;
-    lastResponseEl.textContent = simResp;
-    connectionStatusEl.textContent = "Offline simulation mode";
-
-    // If this was M114, parse the simulated response to update graph
-    if (lines.some(l => l.toUpperCase().startsWith("M114"))) {
-      parseM114Position(buildSimulatedM114Response());
-    }
-    return true;
-  }
-
-  // ── Live mode: real fetch ──
   appendLog(`> ${label}:\n${gcode}`);
   lastCommandEl.textContent = `${label} — ${gcode.replace(/\n/g, " | ")}`;
-  applyGcodeToSimulation(gcode);
+
   try {
-    const res  = await fetch(`${getControlBaseUrl()}/send?msg=${encodeURIComponent(gcode)}`);
+    const url =
+      `${getControlBaseUrl()}/send?msg=${encodeURIComponent(gcode)}` +
+      `&wait=${expectOk ? "1" : "0"}` +
+      `&timeout=${encodeURIComponent(String(timeoutSeconds))}` +
+      (waitForPosition ? "&wait_for=position" : "");
+
+    const res = await fetch(url);
     const text = await res.text();
+
     appendLog(`< ${text}`);
     lastResponseEl.textContent = text;
-    connectionStatusEl.textContent = `Connected to ESP32 at ${CONFIG.espIp}`;
+    connectionStatusEl.textContent = `Connected to Arduino USB bridge at ${getControlBaseUrl()}`;
     updateCameraLinks();
     if (parseM114Position(text)) appendLog("; Graph synced from M114.");
+
+    if (!res.ok) {
+      appendLog(`! Bridge HTTP error ${res.status}.`);
+      return false;
+    }
+
+    if (!expectOk) {
+      const lower = text.toLowerCase();
+      if (/\b(error|failed|exception)\b/.test(lower) && !text.includes("sent without waiting for ok")) {
+        appendLog("! Bridge reported an immediate send error.");
+        return false;
+      }
+      applyGcodeToSimulation(gcode);
+      return true;
+    }
+
+    const result = parseCommandResponse(text);
+    if (!result.ok) {
+      appendLog(`! ${result.reason} Stopping the current sequence.`);
+      return false;
+    }
+
+    applyGcodeToSimulation(gcode);
     return true;
   } catch (err) {
     const msg = `Error: ${err}`;
     appendLog(`! ${msg}`);
     lastResponseEl.textContent = msg;
-    connectionStatusEl.textContent = "Disconnected or request failed";
+    connectionStatusEl.textContent = "Arduino USB bridge disconnected or request failed";
     return false;
   }
 }
 
 // ─────────────────────────────────────────────
-// POSITION SIMULATION
+// POSITION TRACKING
 // ─────────────────────────────────────────────
 
 function parseM114Position(text) {
@@ -329,13 +314,7 @@ function applyGcodeToSimulation(gcode) {
     if (u.match(/^G0\b/) || u.match(/^G1\b/))     { applyCoordinateValues(line, positioningMode, false); return; }
     if (u.startsWith("M360"))                      { applyM360ToSimulation(line); return; }
     if (u.startsWith("G28")) {
-      // Firmware home: shoulderDeg=-87, elbowDeg=-82, z=0, e=-137
-      // FK: x = L1*sin(θ) + L2*sin(θ+ψ),  y = L1*cos(θ) + L2*cos(θ+ψ)
-      const θ = -87 * Math.PI / 180, ψ = -82 * Math.PI / 180;
-      const l1 = CONFIG.arm.link1, l2 = CONFIG.arm.link2;
-      const hx = l1 * Math.sin(θ) + l2 * Math.sin(θ + ψ);
-      const hy = l1 * Math.cos(θ) + l2 * Math.cos(θ + ψ);
-      setSimulatedPosition(hx, hy, 0, -137);
+      simulatedPosition = null;
       positioningMode = "absolute";
       return;
     }
@@ -351,11 +330,9 @@ function applyM360ToSimulation(line) {
   if (de !== null) simulatedPosition.e += de;
   if (dx !== null || dy !== null) {
     const l1 = CONFIG.arm.link1, l2 = CONFIG.arm.link2;
-    // Compute current joint angles via firmware IK convention
     const cur = ikScaraAngles(simulatedPosition.x, simulatedPosition.y);
     const θ = (cur.shoulderDeg + (dx ?? 0)) * Math.PI / 180;
     const ψ = (cur.elbowDeg    + (dy ?? 0)) * Math.PI / 180;
-    // Firmware FK: x = L1*sin(θ) + L2*sin(θ+ψ),  y = L1*cos(θ) + L2*cos(θ+ψ)
     simulatedPosition.x = l1 * Math.sin(θ) + l2 * Math.sin(θ + ψ);
     simulatedPosition.y = l1 * Math.cos(θ) + l2 * Math.cos(θ + ψ);
   }
@@ -456,8 +433,6 @@ function drawWorkspace() {
   const l1 = CONFIG.arm.link1, l2 = CONFIG.arm.link2;
   const maxR = l1 + l2, minR = Math.abs(l1 - l2);
   const cx = W / 2, cy = H / 2;
-  // displayScale shrinks the canvas drawing while keeping real-mm proportions.
-  // IK, workspace limits and G-code all still use real l1/l2.
   const ds = CONFIG.arm.displayScale ?? 1;
   const scale = Math.min(W, H) / ((maxR * ds) * 2.35);
 
@@ -471,18 +446,22 @@ function drawWorkspace() {
 }
 
 
-function getFirmwarePegXY(peg) {
-  const pegs = CONFIG.hanoi?.firmwarePegs || [];
-  const p = pegs[peg];
+function getFirmwarePegXY(peg, kind = "down") {
+  const source =
+    kind === "up"
+      ? (CONFIG.hanoi?.firmwarePegUpPositions || CONFIG.hanoi?.firmwarePegs || [])
+      : (CONFIG.hanoi?.firmwarePegs || []);
+
+  const p = source[peg];
   if (!p || p.x === undefined || p.y === undefined) return null;
   return { x: Number(p.x), y: Number(p.y), name: p.name || `PEG${peg}` };
 }
 
 function firmwarePegLabel(peg) {
-  return getFirmwarePegXY(peg)?.name || `PEG${peg}`;
+  return getFirmwarePegXY(peg, "down")?.name || `PEG${peg}`;
 }
 
-// Draw PEG0 / PEG1 / PEG2 as yellow triangles using firmware-mirrored coordinates
+// Draw PEG0 / PEG1 / PEG2 as yellow triangles 
 function drawPegs(ctx, cx, cy, scale) {
   const ds = CONFIG.arm.displayScale ?? 1;
   const pegs = CONFIG.hanoi?.firmwarePegs || [];
@@ -512,25 +491,17 @@ function drawPegs(ctx, cx, cy, scale) {
 }
 
 function drawArm(ctx, cx, cy, scale) {
-  if (!hasKnownPosition()) {
-    ctx.fillStyle = "rgba(255,176,102,0.85)"; ctx.font = "14px ui-monospace,monospace"; ctx.textAlign = "center";
-    ctx.fillText("Position unknown", cx, cy - 8);
-    ctx.fillText("Use M114, G28, or G92 to sync", cx, cy + 14);
-    ctx.textAlign = "left"; return;
-  }
+  if (!hasKnownPosition()) return;
   const l1 = CONFIG.arm.link1, l2 = CONFIG.arm.link2;
   const ds = CONFIG.arm.displayScale ?? 1;
   const { x, y, e: wristDeg } = simulatedPosition;
 
-  // Firmware IK: theta=atan2(x,y), psi=atan2(s2,c2), ELBOW_SIGN=-1
-  // FK: x = L1*sin(θ) + L2*sin(θ+ψ),  y = L1*cos(θ) + L2*cos(θ+ψ)
   let c2 = (x*x + y*y - l1*l1 - l2*l2) / (2*l1*l2);
   c2 = Math.max(-1, Math.min(1, c2));
   const s2 = IK_ELBOW_SIGN * Math.sqrt(Math.max(0, 1 - c2*c2));
   const θ = Math.atan2(x, y) - Math.atan2(l2*s2, l1 + l2*c2);
   const ψ = Math.atan2(s2, c2);
 
-  // Elbow position via firmware FK  (canvas: right=+x, up=+y so cy - y*scale)
   const elbowX = l1 * Math.sin(θ);
   const elbowY = l1 * Math.cos(θ);
   const ex  = cx + elbowX * ds * scale;
@@ -538,8 +509,7 @@ function drawArm(ctx, cx, cy, scale) {
   const ex2 = cx + x * ds * scale;
   const ey2 = cy - y * ds * scale;
 
-  // Arm links — Shoulder: 
-  const SHOULDER_COLOR = "#ff7a00";  // orange — shoulder #ff7a00
+  const SHOULDER_COLOR = "#ff7a00";  
   const ELBOW_COLOR    = "#ffb066";
 
   ctx.lineCap = "round";
@@ -586,7 +556,6 @@ function drawArm(ctx, cx, cy, scale) {
   ctx.fillText("E" + (wristDeg ?? 0).toFixed(1) + "°", wTipX + 4, wTipY - 3);
   ctx.restore();
 
-  // Joints (on top)
   [[cx, cy, SHOULDER_COLOR, 6], [ex, ey, ELBOW_COLOR, 5], [ex2, ey2, "#f5f5f5", 6]].forEach(([jx, jy, c, r]) => {
     ctx.fillStyle = c; ctx.beginPath(); ctx.arc(jx, jy, r, 0, Math.PI * 2); ctx.fill();
   });
@@ -743,19 +712,6 @@ async function handleSetPosition() {
   await sendRawGcode(gcode, "Set Origin (G92)");
 }
 
-// "Save move…" button from precise panel — prompts for name then saves
-function handleSavePreciseMove() {
-  const name = prompt("Save move as:");
-  if (!name || !name.trim()) return;
-  const pick = (id) => { const v = document.getElementById(id)?.value.trim(); return v !== "" ? v : undefined; };
-  const move = { name: name.trim(), x: pick("absX"), y: pick("absY"), z: pick("absZ"), e: pick("absE"), servo: pick("absServo") };
-  if (!move.x && !move.y && !move.z && !move.e && !move.servo) { appendLog("! Nothing to save — fill at least one field."); return; }
-  sdMoves.push(move);
-  saveSdMoves();
-  renderSdMoves();
-  appendLog(`; Saved move "${move.name}".`);
-}
-
 // ─────────────────────────────────────────────
 // MANUAL CONTROL ACTIONS
 // ─────────────────────────────────────────────
@@ -776,42 +732,36 @@ function getClampedJogGcode(action) {
   return buildAbsoluteMove({ x: c.x, y: c.y, z: "", e: "" }, feed);
 }
 
-function validateServoBounds() {
-  const min = Number(servoMinInput.value), max = Number(servoMaxInput.value);
-  if (servoMinInput.value.trim() === "" || servoMaxInput.value.trim() === "") {
-    appendLog("! Servo min/max cannot be empty."); return false;
-  }
-  if (min >= max) { appendLog("! Servo min must be smaller than max."); return false; }
-  return true;
-}
-
 async function handleAction(action) {
-  // Servo jog ± — handled locally (not in getActionGcode)
   if (action === "servo-jog-plus" || action === "servo-jog-minus") {
     const v = getUiValues();
     if (currentServoAngle === null) {
       const seed = document.getElementById("absServo")?.value.trim();
-      currentServoAngle = seed !== "" && seed !== undefined ? Number(seed) : v.servoMin;
+      currentServoAngle = seed !== "" && seed !== undefined ? Number(seed) : (CONFIG.hanoi?.firmwareServo?.openAngle ?? 0);
     }
     const delta = action === "servo-jog-plus" ? v.servoStep : -v.servoStep;
-    currentServoAngle = Math.min(v.servoMax, Math.max(v.servoMin, currentServoAngle + delta));
+    currentServoAngle = Math.min(180, Math.max(0, currentServoAngle + delta));
     const gcode = buildServoMove(currentServoAngle);
     await sendRawGcode(gcode, `Servo ${delta > 0 ? "+" : "−"}${v.servoStep}° → ${formatNumber(currentServoAngle)}°`);
     const el = document.getElementById("absServo"); if (el) el.value = formatNumber(currentServoAngle);
-    updateCurrentServoDisplay();
     return;
   }
 
-  if (action === "servo-bounds" && !validateServoBounds()) return;
 
   const result = getActionGcode(action, getUiValues());
   if (!result) return;
 
   const gcodeToSend = getClampedJogGcode(action) || result.gcode;
-  await sendRawGcode(gcodeToSend, result.label);
 
-  // Sync currentServoAngle when open/close gripper sent. The firmware now
-  // accepts OPEN/CLOSE text macros, so there may not be an M280 angle in the UI command.
+  const expectsPosition = action === "get-position";
+  const expectsReply = expectsPosition || action === "check-endstops";
+  const sentOk = await sendRawGcode(gcodeToSend, result.label, {
+    expectOk: expectsReply,
+    waitForPosition: expectsPosition,
+    timeoutSeconds: expectsReply ? 3 : 2
+  });
+  if (!sentOk) return;
+
   if (action === "open-gripper") {
     currentServoAngle = CONFIG.hanoi?.firmwareServo?.openAngle ?? currentServoAngle;
   } else if (action === "close-gripper") {
@@ -820,159 +770,44 @@ async function handleAction(action) {
     const m = gcodeToSend.match(/M280 P0 S([\d.]+)/);
     if (m) currentServoAngle = Number(m[1]);
   }
-  updateCurrentServoDisplay();
-
-  if (action === "home") await sendRawGcode(CONFIG.system.getPosition, "Get Position after Home");
+  if (action === "home") {
+    const delayMs = Number(CONFIG.system?.homeSyncDelayMs ?? 3000);
+    if (delayMs > 0) {
+      appendLog(`; Waiting ${delayMs} ms before requesting position after Home…`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    await sendRawGcode(CONFIG.system.getPosition, "Get Position after Home", {
+      expectOk: true,
+      waitForPosition: true,
+      timeoutSeconds: 8
+    });
+  }
 }
 
 async function handleCustomSend() {
   const v = customMsgInput.value.trim();
   if (!v) return;
-  await sendRawGcode(v, "Custom G-code");
+
+  // Most macros should be fire-and-forget, but status queries need the Arduino reply.
+  const expectsPosition = /(^|\n)\s*M114\b/i.test(v);
+  const expectsReply = expectsPosition || /(^|\n)\s*M119\b/i.test(v);
+  await sendRawGcode(v, "Custom G-code", {
+    expectOk: expectsReply,
+    waitForPosition: expectsPosition,
+    timeoutSeconds: expectsReply ? 5 : 2
+  });
   customMsgInput.value = "";
 }
 
 // ─────────────────────────────────────────────
-// DISK GRIP / RELEASE TABLE  (in Saved Data › Servo section)
+// IK CALIBRATION VALUES
 // ─────────────────────────────────────────────
 
-const NUM_DISKS = 5;
-const DISK_ANGLES_KEY = "diskAngles";
-const DISK_ANGLE_DEFAULTS = CONFIG.hanoi?.diskAngles || {};
-let diskAngles = JSON.parse(localStorage.getItem(DISK_ANGLES_KEY) || JSON.stringify(DISK_ANGLE_DEFAULTS));
-
-function saveDiskAngles() { localStorage.setItem(DISK_ANGLES_KEY, JSON.stringify(diskAngles)); }
-
-function updateCurrentServoDisplay() {
-  const el = document.getElementById("currentServoDisplay");
-  if (el) el.textContent = currentServoAngle !== null ? formatNumber(currentServoAngle) : "—";
-}
-
-function buildDiskTable() {
-  const container = document.getElementById("diskGripTable");
-  if (!container) return;
-  container.innerHTML = "";
-
-  const groupTop = document.createElement("div");
-  groupTop.className = "disk-row-group disk-row-group--3";
-  const groupBottom = document.createElement("div");
-  groupBottom.className = "disk-row-group disk-row-group--2";
-
-  for (let d = 1; d <= NUM_DISKS; d++) {
-    const saved = diskAngles[`disk${d}`] || {};
-    const row = document.createElement("div");
-    row.className = "disk-row";
-    row.innerHTML = `
-      <div class="disk-row-top">
-        <div class="disk-label">Disk ${d}</div>
-        <div class="field-block">
-          <label class="field-label">Grip °</label>
-          <div class="disk-angle-row">
-            <input class="disk-grip" type="number" min="0" max="180" step="1" value="${saved.grip ?? ""}" placeholder="—" />
-            <button class="btn btn-secondary btn-xsmall disk-capture-grip" title="Capture current servo angle as Grip">↓</button>
-          </div>
-        </div>
-        <div class="field-block">
-          <label class="field-label">Release °</label>
-          <div class="disk-angle-row">
-            <input class="disk-release" type="number" min="0" max="180" step="1" value="${saved.release ?? ""}" placeholder="—" />
-            <button class="btn btn-secondary btn-xsmall disk-capture-release" title="Capture current servo angle as Release">↓</button>
-          </div>
-        </div>
-      </div>
-      <div class="disk-row-bottom">
-        <button class="btn btn-secondary btn-small disk-save-btn">Save</button>
-        <button class="btn btn-primary btn-small disk-grip-btn">Grip</button>
-        <button class="btn btn-secondary btn-small disk-release-btn">Release</button>
-      </div>
-    `;
-    const gripIn = row.querySelector(".disk-grip"), relIn = row.querySelector(".disk-release");
-    const saveBtn = row.querySelector(".disk-save-btn");
-
-    row.querySelector(".disk-capture-grip").addEventListener("click", () => {
-      if (currentServoAngle === null) { appendLog("! Servo angle unknown — move servo first."); return; }
-      gripIn.value = formatNumber(currentServoAngle);
-    });
-    row.querySelector(".disk-capture-release").addEventListener("click", () => {
-      if (currentServoAngle === null) { appendLog("! Servo angle unknown — move servo first."); return; }
-      relIn.value = formatNumber(currentServoAngle);
-    });
-    saveBtn.addEventListener("click", () => {
-      diskAngles[`disk${d}`] = { grip: gripIn.value.trim(), release: relIn.value.trim() };
-      saveDiskAngles();
-      appendLog(`; Disk ${d}: grip=${gripIn.value}° release=${relIn.value}° saved.`);
-      flashBtn(saveBtn);
-    });
-    row.querySelector(".disk-grip-btn").addEventListener("click", async () => {
-      const g = gripIn.value.trim();
-      if (!g) { appendLog(`! Disk ${d}: grip angle not set.`); return; }
-      const a = Number(g);
-      if (Number.isNaN(a) || a < 0 || a > 180) { appendLog(`! Disk ${d}: invalid grip angle.`); return; }
-      await sendRawGcode(buildServoMove(a), `Disk ${d} Grip`);
-      currentServoAngle = a; updateCurrentServoDisplay();
-    });
-    row.querySelector(".disk-release-btn").addEventListener("click", async () => {
-      const r = relIn.value.trim();
-      if (!r) { appendLog(`! Disk ${d}: release angle not set.`); return; }
-      const a = Number(r);
-      if (Number.isNaN(a) || a < 0 || a > 180) { appendLog(`! Disk ${d}: invalid release angle.`); return; }
-      await sendRawGcode(buildServoMove(a), `Disk ${d} Release`);
-      currentServoAngle = a; updateCurrentServoDisplay();
-    });
-    (d <= 3 ? groupTop : groupBottom).appendChild(row);
-  }
-
-  container.appendChild(groupTop);
-  container.appendChild(groupBottom);
-}
-
-function getGripAngleForDisk(d)    { return diskAngles[`disk${d}`]?.grip    ?? null; }
-function getReleaseAngleForDisk(d) { return diskAngles[`disk${d}`]?.release ?? null; }
-
-// ─────────────────────────────────────────────
-// SERVO INITIAL POSITION
-// ─────────────────────────────────────────────
-
-let servoInitialAngle = Number(localStorage.getItem("servoInitialAngle") || "0");
-
-function renderServoInitialResult() {
-  const el = document.getElementById("servoCalResult");
-  if (el) el.innerHTML = `<span class="cal-ok">✓</span> Physical start: <strong>${servoInitialAngle}°</strong>`;
-}
-
-function setupServoInitialAngle() {
-  const radio = document.querySelector(`input[name="servoInitial"][value="${servoInitialAngle}"]`);
-  if (radio) radio.checked = true;
-  document.querySelector('[data-action="servo-bounds"]')?.addEventListener("click", () => {
-    const checked = document.querySelector('input[name="servoInitial"]:checked');
-    if (checked) {
-      servoInitialAngle = Number(checked.value);
-      localStorage.setItem("servoInitialAngle", servoInitialAngle);
-      renderServoInitialResult();
-      appendLog(`; Servo initial position saved: ${servoInitialAngle}°`);
-    }
-  });
-  renderServoInitialResult();
-}
-
-// ─────────────────────────────────────────────
-// SAVED DATA
-// ─────────────────────────────────────────────
-//
-// Storage:
-//   sdAxis  → { x:[{name,value}], y:[…], z:[…], e:[…] }
-//   sdConst → { diskHeight: "10" }
-//   sdMoves → [{name,x,y,z,e,servo}]
-//
-// IK reads: ikGetPlatformBaseZ()   ← z["platform base"]
-//           ikGetDiskHeight()       ← sdConst.diskHeight
-//           ikGetZClearance()       ← z["height up (clearance)"]
-//           ikGetPegXY(peg)         ← x[peg0/1/2] + y["pegs (shared)"]
-//           getPegOffset(peg)       ← derived from absolute X values
-
+// The old saved-data UI was removed from index.html. Keep only the small
+// calibration store used by the IK test section, so app.js does not carry the
+// unused saved-move / per-disk servo table code.
 const SD_AXIS_KEY  = "sdAxis2";
 const SD_CONST_KEY = "sdConst2";
-const SD_MOVES_KEY = "sdMoves2";
 
 const HANOI_CAL = CONFIG.hanoi?.calibration || {};
 const SD_AXIS_DEFAULTS = {
@@ -990,23 +825,28 @@ const SD_AXIS_DEFAULTS = {
   e: []
 };
 
-function loadSdAxis()  { try { const r = localStorage.getItem(SD_AXIS_KEY);  if (r) return JSON.parse(r); } catch(_){} const d = JSON.parse(JSON.stringify(SD_AXIS_DEFAULTS)); localStorage.setItem(SD_AXIS_KEY, JSON.stringify(d)); return d; }
-function loadSdConst() { try { const r = localStorage.getItem(SD_CONST_KEY); if (r) return JSON.parse(r); } catch(_) {} return { diskHeight: CONFIG.hanoi?.diskHeight ?? "" }; }
-function loadSdMoves() { try { return JSON.parse(localStorage.getItem(SD_MOVES_KEY) || "[]"); } catch(_) { return []; } }
+function loadSdAxis() {
+  try {
+    const raw = localStorage.getItem(SD_AXIS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return JSON.parse(JSON.stringify(SD_AXIS_DEFAULTS));
+}
 
-let sdAxis  = loadSdAxis();
-let sdConst = loadSdConst();
-let sdMoves = loadSdMoves();
+function loadSdConst() {
+  try {
+    const raw = localStorage.getItem(SD_CONST_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return { diskHeight: CONFIG.hanoi?.diskHeight ?? "" };
+}
 
-function saveSdAxis()  { localStorage.setItem(SD_AXIS_KEY,  JSON.stringify(sdAxis));  }
-function saveSdConst() { localStorage.setItem(SD_CONST_KEY, JSON.stringify(sdConst)); }
-function saveSdMoves() { localStorage.setItem(SD_MOVES_KEY, JSON.stringify(sdMoves)); }
-
-// ── IK getters ────────────────────────────────
+const sdAxis = loadSdAxis();
+const sdConst = loadSdConst();
 
 function sdFindVal(axis, name) {
-  const e = (sdAxis[axis] || []).find(e => e.name === name);
-  return (e && e.value !== "") ? Number(e.value) : null;
+  const entry = (sdAxis[axis] || []).find(e => e.name === name);
+  return (entry && entry.value !== "") ? Number(entry.value) : null;
 }
 
 function ikGetPlatformBaseZ()  { return sdFindVal("z", "platform base"); }
@@ -1014,7 +854,9 @@ function ikGetDiskHeight()     { const v = sdConst.diskHeight; return (v !== und
 function ikGetZClearance()     { return sdFindVal("z", "height up (clearance)"); }
 
 function ikGetPegXY(peg) {
-  return getFirmwarePegXY(peg);
+  // The PEG macros move to the safe "UP" coordinates, not exactly to the peg center.
+  // Use the UP coordinates for previews/ghost arm positions.
+  return getFirmwarePegXY(peg, "up");
 }
 
 function getPegOffset(peg) {
@@ -1024,225 +866,13 @@ function getPegOffset(peg) {
   return target.x - mid.x;
 }
 
-function captureAxisValue(axis) {
-  if (!hasKnownPosition()) return null;
-  return formatNumber(simulatedPosition[axis]);
-}
-
-// ── Per-axis rows ─────────────────────────────
-
-function buildAxisGoHandler(axis, getVal) {
-  return async () => {
-    const val = getVal();
-    if (val === "" || val === null || val === undefined) { appendLog(`! No value saved to go to.`); return; }
-    const n = Number(val);
-    if (Number.isNaN(n)) { appendLog("! Invalid value."); return; }
-    // For X/Y we need the paired axis too for a valid move
-    let gcode;
-    if (axis === "x") {
-      const y = hasKnownPosition() ? simulatedPosition.y : "";
-      gcode = buildAbsoluteMove({ x: n, y, z: "", e: "" }, unitsPerSecondToFeedrate(xySpeedSlider.value));
-      if (y !== "" && isXYOutsideWorkspace(n, Number(y))) { appendLog("! Target X outside workspace."); return; }
-      if (y !== "") setPreviewPosition(n, Number(y));
-    } else if (axis === "y") {
-      const x = hasKnownPosition() ? simulatedPosition.x : "";
-      gcode = buildAbsoluteMove({ x, y: n, z: "", e: "" }, unitsPerSecondToFeedrate(xySpeedSlider.value));
-      if (x !== "" && isXYOutsideWorkspace(Number(x), n)) { appendLog("! Target Y outside workspace."); return; }
-      if (x !== "") setPreviewPosition(Number(x), n);
-    } else if (axis === "z") {
-      gcode = buildAbsoluteMove({ x: "", y: "", z: n, e: "" }, unitsPerSecondToFeedrate(zSpeedSlider.value));
-    } else if (axis === "e") {
-      gcode = buildAbsoluteMove({ x: "", y: "", z: "", e: n }, unitsPerSecondToFeedrate(wristSpeedSlider.value));
-    }
-    if (!gcode) { appendLog("! Nothing to send."); return; }
-    pendingExecution = async () => { await sendRawGcode(gcode, `Go to ${axis.toUpperCase()} ${n}`); };
-    updatePreviewBanner(`Go to ${axis.toUpperCase()} ${n}`);
-  };
-}
-
-function renderSdAxisRows(axis) {
-  const container = document.getElementById(`sdRows${axis.toUpperCase()}`);
-  if (!container) return;
-  container.innerHTML = "";
-  (sdAxis[axis] || []).forEach((entry, idx) => {
-    const row = document.createElement("div");
-    row.className = "sd-row";
-    row.innerHTML = `
-      <span class="sd-row-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span>
-      <input class="sd-row-val" type="number" step="0.1" value="${entry.value ?? ""}" placeholder="—" />
-      <button class="btn btn-secondary btn-xsmall sd-row-capture" title="Capture current ${axis.toUpperCase()}">↓</button>
-      <button class="btn btn-secondary btn-xsmall sd-row-save">Save</button>
-      <button class="btn btn-primary btn-xsmall sd-row-go" title="Go to this value">→</button>
-      <button class="btn btn-secondary btn-xsmall sd-row-del">✕</button>
-    `;
-    const valInput = row.querySelector(".sd-row-val");
-    row.querySelector(".sd-row-capture").addEventListener("click", () => {
-      const v = captureAxisValue(axis);
-      if (v === null) { appendLog("! Position unknown. Use M114 or G28 first."); return; }
-      valInput.value = v;
-    });
-    row.querySelector(".sd-row-save").addEventListener("click", () => {
-      sdAxis[axis][idx].value = valInput.value.trim();
-      saveSdAxis();
-      appendLog(`; Saved ${axis.toUpperCase()} "${entry.name}" = ${valInput.value}`);
-      flashBtn(row.querySelector(".sd-row-save"));
-    });
-    row.querySelector(".sd-row-go").addEventListener("click", buildAxisGoHandler(axis, () => valInput.value.trim()));
-    row.querySelector(".sd-row-del").addEventListener("click", () => {
-      if (!confirm(`Delete "${entry.name}"?`)) return;
-      sdAxis[axis].splice(idx, 1); saveSdAxis(); renderSdAxisRows(axis);
-      appendLog(`; Deleted ${axis.toUpperCase()} "${entry.name}".`);
-    });
-    container.appendChild(row);
-  });
-}
-
-function setupSdAxisAdder(axis) {
-  const addBtn  = document.querySelector(`.sd-add-entry[data-axis="${axis}"]`);
-  const nameIn  = document.querySelector(`.sd-new-name[data-axis="${axis}"]`);
-  const valIn   = document.querySelector(`.sd-new-val[data-axis="${axis}"]`);
-  const capBtn  = document.querySelector(`.sd-capture-new[data-axis="${axis}"]`);
-
-  capBtn?.addEventListener("click", () => {
-    const v = captureAxisValue(axis);
-    if (v === null) { appendLog("! Position unknown. Use M114 or G28 first."); return; }
-    if (valIn) valIn.value = v;
-  });
-
-  const doAdd = () => {
-    const name = nameIn?.value.trim();
-    if (!name) { appendLog("! Enter a name before adding."); return; }
-    if (!sdAxis[axis]) sdAxis[axis] = [];
-    if (sdAxis[axis].find(e => e.name === name)) { appendLog(`! "${name}" already exists in ${axis.toUpperCase()}.`); return; }
-    sdAxis[axis].push({ name, value: valIn?.value.trim() || "" });
-    saveSdAxis(); nameIn.value = ""; if (valIn) valIn.value = "";
-    renderSdAxisRows(axis);
-    appendLog(`; Added ${axis.toUpperCase()} "${name}".`);
-  };
-  addBtn?.addEventListener("click", doAdd);
-  nameIn?.addEventListener("keydown", e => { if (e.key === "Enter") doAdd(); });
-}
-
-// ── Z constants ───────────────────────────────
-
-function renderSdConst() {
-  const el = document.getElementById("sdDiskHeight");
-  if (el && sdConst.diskHeight !== undefined) el.value = sdConst.diskHeight;
-}
-
-function setupSdConst() {
-  document.getElementById("sdSaveDiskHeight")?.addEventListener("click", () => {
-    sdConst.diskHeight = document.getElementById("sdDiskHeight")?.value.trim() || "";
-    saveSdConst();
-    appendLog(`; Disk height saved: ${sdConst.diskHeight} mm`);
-    flashBtn(document.getElementById("sdSaveDiskHeight"));
-  });
-}
-
-// ── Combined moves ────────────────────────────
-
-function renderSdMoves() {
-  const container = document.getElementById("sdMovesList");
-  if (!container) return;
-  container.innerHTML = "";
-  if (sdMoves.length === 0) { container.innerHTML = `<div class="sd-moves-empty">No moves saved yet.</div>`; return; }
-
-  sdMoves.forEach((move, idx) => {
-    const row = document.createElement("div");
-    row.className = "sd-move-row";
-    const parts = [];
-    if (move.x     !== undefined) parts.push(`X${move.x}`);
-    if (move.y     !== undefined) parts.push(`Y${move.y}`);
-    if (move.z     !== undefined) parts.push(`Z${move.z}`);
-    if (move.e     !== undefined) parts.push(`E${move.e}°`);
-    if (move.servo !== undefined) parts.push(`S${move.servo}°`);
-    row.innerHTML = `
-      <div class="sd-move-info">
-        <span class="sd-move-name">${escapeHtml(move.name)}</span>
-        <span class="sd-move-coords">${parts.join(" · ") || "—"}</span>
-      </div>
-      <div class="sd-move-actions">
-        <button class="btn btn-primary btn-xsmall sd-move-go">Go</button>
-        <button class="btn btn-secondary btn-xsmall sd-move-del">✕</button>
-      </div>
-    `;
-    row.querySelector(".sd-move-go").addEventListener("click", async () => {
-      const x = move.x !== undefined ? Number(move.x) : null;
-      const y = move.y !== undefined ? Number(move.y) : null;
-      if (x !== null && y !== null && isXYOutsideWorkspace(x, y)) { appendLog(`! "${move.name}" XY outside workspace.`); return; }
-      const gcode = buildAbsoluteMove({ x: move.x ?? "", y: move.y ?? "", z: move.z ?? "", e: move.e ?? "" }, unitsPerSecondToFeedrate(xySpeedSlider.value));
-      if (gcode) {
-        if (x !== null && y !== null) setPreviewPosition(x, y);
-        pendingExecution = async () => {
-          await sendRawGcode(gcode, `Go to "${move.name}"`);
-          if (move.servo !== undefined) await sendRawGcode(buildServoMove(Number(move.servo)), `"${move.name}" servo`);
-        };
-        updatePreviewBanner(`Go to "${move.name}"`);
-      }
-    });
-    row.querySelector(".sd-move-del").addEventListener("click", () => {
-      if (!confirm(`Delete move "${move.name}"?`)) return;
-      sdMoves.splice(idx, 1); saveSdMoves(); renderSdMoves();
-      appendLog(`; Deleted move "${move.name}".`);
-    });
-    container.appendChild(row);
-  });
-}
-
-function setupSdMoves() {
-  // ↓ Current pos: fill from simulatedPosition
-  document.getElementById("sdCaptureCurrent")?.addEventListener("click", () => {
-    if (!hasKnownPosition()) { appendLog("! Position unknown. Use M114 or G28 first."); return; }
-    const s = simulatedPosition;
-    document.getElementById("sdMoveX").value = formatNumber(s.x);
-    document.getElementById("sdMoveY").value = formatNumber(s.y);
-    document.getElementById("sdMoveZ").value = formatNumber(s.z);
-    document.getElementById("sdMoveE").value = formatNumber(s.e);
-    if (currentServoAngle !== null) document.getElementById("sdMoveServo").value = formatNumber(currentServoAngle);
-  });
-
-  document.getElementById("sdSaveMove")?.addEventListener("click", () => {
-    const name = document.getElementById("sdMoveName")?.value.trim();
-    if (!name) { appendLog("! Enter a name for the move."); return; }
-    const pick = (id) => { const v = document.getElementById(id)?.value.trim(); return v !== "" ? v : undefined; };
-    const move = { name, x: pick("sdMoveX"), y: pick("sdMoveY"), z: pick("sdMoveZ"), e: pick("sdMoveE"), servo: pick("sdMoveServo") };
-    if (!move.x && !move.y && !move.z && !move.e && !move.servo) { appendLog("! Nothing to save — fill at least one field."); return; }
-    sdMoves.push(move); saveSdMoves(); renderSdMoves();
-    appendLog(`; Saved move "${name}".`);
-    ["sdMoveName","sdMoveX","sdMoveY","sdMoveZ","sdMoveE","sdMoveServo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-  });
-}
-
-// ── Master setup ──────────────────────────────
-
-function setupSavedData() {
-  ["x","y","z","e"].forEach(axis => { renderSdAxisRows(axis); setupSdAxisAdder(axis); });
-  renderSdConst(); setupSdConst();
-  buildDiskTable();
-  setupSdMoves(); renderSdMoves();
-
-  document.getElementById("clearSavedDataBtn")?.addEventListener("click", () => {
-    if (!confirm("Clear ALL saved data?")) return;
-    sdAxis  = JSON.parse(JSON.stringify(SD_AXIS_DEFAULTS));
-    sdConst = {}; sdMoves = [];
-    saveSdAxis(); saveSdConst(); saveSdMoves();
-    ["x","y","z","e"].forEach(axis => renderSdAxisRows(axis));
-    renderSdConst(); renderSdMoves();
-    appendLog("; Saved data cleared.");
-  });
-}
-
 // ─────────────────────────────────────────────
 // IK DISK MOVE PLANNER — 3-stage flow
-//   Stage 1: Compute → show plan (natural language + gcode) → user approves plan
-//   Stage 2: Show preview on graph → user confirms execution
+//   Stage 1: Compute -> show plan -> user approves plan
+//   Stage 2: Show preview on graph -> user confirms execution
 //   Stage 3: Execute
 // ─────────────────────────────────────────────
 
-// Mirrors firmware inverseKinematics() exactly:
-//   theta = atan2(px, py) - atan2(L2*s2, L1+L2*c2)   [note: atan2(x,y) not atan2(y,x)]
-//   psi   = atan2(s2, c2),  s2 = SCARA_ELBOW_SIGN * sqrt(1-c2²)
-//   FK:  x = L1*sin(θ) + L2*sin(θ+ψ),  y = L1*cos(θ) + L2*cos(θ+ψ)
 const IK_ELBOW_SIGN = -1;  // matches firmware SCARA_ELBOW_SIGN
 const DISK_HEIGHT_MM_FALLBACK = 10;
 let ikStepGcodes  = [];      // raw gcode strings per step
@@ -1280,7 +910,6 @@ function updateIkClearanceNote() {
 }
 
 function ikSetStage(stage) {
-  // Only manage step buttons visibility now — stage 2/3 bars removed
   document.getElementById("ikActions").style.display = (ikStepGcodes.length > 0) ? "flex" : "none";
 }
 
@@ -1324,7 +953,6 @@ UP` }
 
   const nlLines = [
     `<strong>Disk ${diskType}</strong>: ${firmwarePegLabel(fromPeg)} → ${firmwarePegLabel(toPeg)}`,
-    `The firmware now owns peg coordinates, Z layers, and gripper angles.`,
     `<strong>Step 1 — Move above source</strong>: send <code>UP</code>, then <code>${firmwarePegLabel(fromPeg)}</code>.`,
     `<strong>Step 2 — Pick</strong>: send <code>${sourceLayer}</code>, <code>CLOSE</code>, then <code>UP</code>.`,
     `<strong>Step 3 — Move to target</strong>: send <code>${firmwarePegLabel(toPeg)}</code>.`,
@@ -1360,8 +988,6 @@ UP` }
 
 /**
  * Queue step i for preview+confirm via the shared preview banner.
- * After confirm → execute → auto-queue next step.
- * This replaces the old manual step buttons.
  */
 function ikQueueNextStep(i) {
   if (i >= ikStepGcodes.length) {
@@ -1374,7 +1000,6 @@ function ikQueueNextStep(i) {
   const label = ikStepLabels[i];
   const gcode = ikStepGcodes[i];
 
-  // Show ghost arm preview for steps that move XY
   if (ikComputedData) {
     if (label.startsWith("Move above") && ikComputedData.fromXY) setPreviewPosition(ikComputedData.fromXY.x, ikComputedData.fromXY.y);
     else if (label.startsWith("Move to") && ikComputedData.toXY)  setPreviewPosition(ikComputedData.toXY.x,   ikComputedData.toXY.y);
@@ -1418,13 +1043,11 @@ document.getElementById("absServo")?.addEventListener("input", updateAbsolutePre
 absXInput.addEventListener("input", updatePreciseMovePreview);
 absYInput.addEventListener("input", updatePreciseMovePreview);
 
-[servoMinInput, servoMaxInput].forEach(el => el.addEventListener("input", () => { if (tooltipEl.classList.contains("visible")) tooltipEl.classList.remove("visible"); }));
 
 document.querySelectorAll("[data-action]").forEach(btn => btn.addEventListener("click", () => handleAction(btn.dataset.action)));
 
 document.getElementById("goToPositionBtn")?.addEventListener("click",  handleGoToPosition);
 document.getElementById("setPositionBtn")?.addEventListener("click",   handleSetPosition);
-document.getElementById("savePreciseMoveBtn")?.addEventListener("click", handleSavePreciseMove);
 document.getElementById("clearAbsoluteBtn")?.addEventListener("click", clearAbsoluteFields);
 document.getElementById("sendCustomBtn")?.addEventListener("click",    handleCustomSend);
 document.getElementById("clearLogBtn")?.addEventListener("click",      clearLog);
@@ -1444,7 +1067,7 @@ function updateCameraLinks() {
   if (ipInput) ipInput.value = CONFIG.espIp;
 
   // The visible camera is now the Python/OpenCV annotated stream.
-  // The raw ESP32 stream is still used internally by cv_server.py.
+  // The raw ESP32 stream is used internally by cv_server.py.
   if (feed && feed.dataset.paused !== "true") {
     feed.src = `${getCvStreamUrl()}?t=${Date.now()}`;
   }
@@ -1513,34 +1136,9 @@ async function initApp() {
   setupNetworkPanel();
   setupTooltipToggle();
   setupCommandTooltips();
-  setupServoInitialAngle();
-  setupSavedData();
   setupIKPlanner();
   updateIkClearanceNote();
   if (typeof setupHanoiSolver === "function") setupHanoiSolver();
-  updateCurrentServoDisplay();
-
-  // Simulation mode toggle
-  const simToggle = document.getElementById("simModeToggle");
-  if (simToggle) {
-    simToggle.addEventListener("change", () => {
-      simMode = simToggle.checked;
-      document.body.classList.toggle("sim-mode", simMode);
-      const label = document.getElementById("simModeLabel");
-      if (label) label.textContent = simMode ? "SIMULATION" : "Simulation";
-      if (simMode) {
-        appendLog("⚡ Simulation mode ON — commands applied locally, no real send.", "log-sim");
-        // Seed position if none known
-        if (!hasKnownPosition()) {
-          seedInitialWorkspacePose();
-          drawWorkspace();
-          appendLog(`; Seeded initial position X:0 Y:${formatNumber(CONFIG.arm.link1 + CONFIG.arm.link2)} Z:0 E:90 for simulation.`, "log-sim");
-        }
-      } else {
-        appendLog("; Simulation mode OFF — live mode.");
-      }
-    });
-  }
 
   // Collapsible cards — click header to toggle
   document.querySelectorAll(".advanced-drawer .card-header").forEach(header => {
@@ -1562,7 +1160,6 @@ async function initApp() {
 
   updateSpeedDisplay();
   updateAbsolutePreview();
-  if (!hasKnownPosition()) seedInitialWorkspacePose();
   resizeWorkspaceCanvas();
   window.addEventListener("resize", resizeWorkspaceCanvas);
   // Guarantee draw after full layout paint
