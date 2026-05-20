@@ -1,13 +1,18 @@
 """
 SCARAnoi OpenCV bridge
 
-This server is the link between the ESP32-CAM and the browser UI:
+This server is now mainly the camera/CV side of the interface:
 
     ESP32-CAM raw stream  ->  Python OpenCV detection  ->  annotated stream in browser
 
+Robot commands are normally sent by the browser directly to the ESP32 /send
+endpoint, then the ESP32 forwards them to the Arduino over UART. The old
+computer-to-Arduino USB /send route is left as a fallback, but it is not opened
+at startup anymore.
+
 Run it from the project folder:
 
-    python cv_server.py --esp-ip 172.21.76.162 --arduino_port /dev/ttyUSB0
+    python cv_server.py --esp-ip 172.21.76.162
 
 Then open:
 
@@ -622,13 +627,8 @@ def main() -> None:
     print("[SCARAnoi CV] ESP32 stream:", stream_url)
     print(f"[SCARAnoi CV] Open interface: http://localhost:{args.port}")
     print(f"[SCARAnoi CV] OpenCV stream: http://localhost:{args.port}/cv-stream")
-    print(f"[SCARAnoi CV] Arduino USB bridge: {arduino_port} @ {arduino_baud}")
-
-    try:
-        open_arduino_serial()
-        print("[SCARAnoi CV] Arduino serial opened and ready.")
-    except Exception as exc:
-        print(f"[SCARAnoi CV] Warning: could not open Arduino serial at startup: {exc}")
+    print(f"[SCARAnoi CV] Robot commands: browser -> ESP32 http://{esp_ip}/send -> Arduino UART")
+    print("[SCARAnoi CV] USB /send route is only a fallback and is not opened at startup.")
 
     app.run(host=args.host, port=args.port, debug=False, threaded=True)
 

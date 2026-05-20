@@ -218,6 +218,7 @@ function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   }
 
   const maxLayer = hanoiMaxDisks();
+
   if (diskLevel < 1 || diskLevel > maxLayer) {
     return { steps: [], error: `Invalid source layer ${diskLevel}. Expected 1..${maxLayer}.` };
   }
@@ -229,7 +230,6 @@ function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   const fromCmd = firmwarePegCommand(fromPeg);
   const toCmd = firmwarePegCommand(toPeg);
   const sourceLayerCmd = firmwareLayerCommand(diskLevel);
-  const targetLayerCmd = firmwareLayerCommand(toLevel);
   const upCmd = firmwareSafeHeightCommand();
   const openCmd = firmwareOpenCommand();
   const closeCmd = firmwareCloseCommand();
@@ -237,24 +237,27 @@ function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   const steps = [
     {
       label: `Move above ${uiPegLabel(fromPeg)}`,
-      gcode: `${upCmd}
-${fromCmd}`
+      gcode: fromCmd
     },
     {
-      label: `Pick Disk ${diskId} from ${uiPegLabel(fromPeg)} layer ${diskLevel}`,
-      gcode: `${sourceLayerCmd}
-${closeCmd}
-${upCmd}`
+      label: `Go down to Disk ${diskId} on ${uiPegLabel(fromPeg)} layer ${diskLevel}`,
+      gcode: sourceLayerCmd
+    },
+    {
+      label: `Grab Disk ${diskId}`,
+      gcode: closeCmd
+    },
+    {
+      label: `Lift Disk ${diskId}`,
+      gcode: upCmd
     },
     {
       label: `Move to ${uiPegLabel(toPeg)}`,
-      gcode: `${toCmd}`
+      gcode: toCmd
     },
     {
-      label: `Place Disk ${diskId} on ${uiPegLabel(toPeg)} layer ${toLevel}`,
-      gcode: `${targetLayerCmd}
-${openCmd}
-${upCmd}`
+      label: `Drop Disk ${diskId} on ${uiPegLabel(toPeg)}`,
+      gcode: openCmd
     }
   ];
 
@@ -551,16 +554,18 @@ async function hanoiExecuteCurrentStep() {
   appendLog(step.gcode);
   console.log(`[Hanoi] ${moveLabel} — ${step.label}\n${step.gcode}`);
 
-  // Most Hanoi substeps now wait for Arduino ok, so the UI does not blindly
-  // fire commands faster than the firmware can process them.
-  //
-  // START is special because the current firmware macro internally calls several
-  // handlers that may print more than one ok. We send START without waiting,
-  // then immediately use M400+M114 to create a clean sync point before continuing.
+  // Most Hanoi substeps wait for one firmware ok.
+  // START is different: the current Arduino macro internally prints more than
+  // one ok, so the ESP bridge waits for a configured number of ok lines before
+  // the UI sends M400/M114. This prevents M114 from being sent while START is
+  // still moving and getting swallowed by the firmware emergency-only reader.
   const isInitStep = step.label === "Initialize arm from home";
   const sentOk = await sendRawGcode(step.gcode, `Hanoi ${step.label}`, {
-    expectOk: !isInitStep,
-    timeoutSeconds: Number(CONFIG.hanoi?.substepTimeoutSeconds ?? 45)
+    expectOk: true,
+    waitForOkCount: isInitStep ? Number(CONFIG.hanoi?.startOkCount ?? 2) : 0,
+    timeoutSeconds: isInitStep
+      ? Number(CONFIG.hanoi?.startTimeoutSeconds ?? 90)
+      : Number(CONFIG.hanoi?.substepTimeoutSeconds ?? 45)
   });
 
   if (!sentOk) {
@@ -574,15 +579,19 @@ async function hanoiExecuteCurrentStep() {
   }
 
   if (isInitStep) {
-    const synced = await syncWorkspaceAfterHanoiMove();
-    if (!synced) {
-      hanoiRunning = false;
-      hanoiPaused = hanoiHasPendingWork();
-      hanoiFullAuto = false;
-      pendingExecution = null;
-      appendLog("! Hanoi paused because START could not be synced with M400/M114.");
-      updateHanoiUI();
-      return false;
+    if (CONFIG.hanoi?.syncAfterStart) {
+      const synced = await syncWorkspaceAfterHanoiMove();
+      if (!synced) {
+        hanoiRunning = false;
+        hanoiPaused = hanoiHasPendingWork();
+        hanoiFullAuto = false;
+        pendingExecution = null;
+        appendLog("! Hanoi paused because START could not be synced with M400/M114.");
+        updateHanoiUI();
+        return false;
+      }
+    } else {
+      appendLog("; START acknowledged. Skipping immediate M400/M114 sync to avoid sending M114 while START output is still flushing.");
     }
   }
 
@@ -749,14 +758,20 @@ function hanoiStop() {
 async function syncWorkspaceAfterHanoiMove() {
   if (typeof sendRawGcode !== "function") return true;
 
-  const command = CONFIG.hanoi?.completionSyncCommand || "M400\nM114";
   const timeoutSeconds = Number(CONFIG.hanoi?.completionTimeoutSeconds ?? 45);
 
-  appendLog("; Hanoi: waiting for firmware completion and syncing graph with M114…");
-  return await sendRawGcode(command, "Hanoi completion sync", {
+  appendLog("; Hanoi: waiting for firmware completion with M400…");
+  const barrierOk = await sendRawGcode("M400", "Hanoi completion barrier", {
+    expectOk: true,
+    timeoutSeconds
+  });
+  if (!barrierOk) return false;
+
+  appendLog("; Hanoi: syncing graph with M114…");
+  return await sendRawGcode("M114", "Hanoi position sync", {
     expectOk: true,
     waitForPosition: true,
-    timeoutSeconds
+    timeoutSeconds: Number(CONFIG.system?.positionSyncTimeoutSeconds ?? 10)
   });
 }
 

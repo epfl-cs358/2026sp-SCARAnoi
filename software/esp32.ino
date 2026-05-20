@@ -36,7 +36,7 @@ WiFiServer streamServer(81);
 #define ARDUINO_RX_PIN 13  // ESP RX: connect to Arduino Mega TX2 pin 16
 #define ARDUINO_TX_PIN 14  // ESP TX: connect to Arduino Mega RX2 pin 17
 #define ARDUINO_BAUD 250000
-HardwareSerial arduinoSerial(1);
+HardwareSerial arduinoSerial(2);
 
 static const unsigned long COMMAND_TIMEOUT_MS = 120000;
 static const unsigned long RESPONSE_SETTLE_MS = 80;
@@ -90,13 +90,37 @@ String cleanCommandLine(String raw) {
 bool isFirmwareOkLine(String line) {
   line.trim();
   line.toLowerCase();
-  return line == "ok";
+  return line == "ok" || line.startsWith("ok ") || line.endsWith(" ok");
 }
 
 bool isFirmwareErrorLine(String line) {
   line.trim();
   line.toLowerCase();
   return line.startsWith("error") || line.startsWith("fatal");
+}
+
+bool lineContainsPositionReport(String line) {
+  line.toUpperCase();
+  return line.indexOf("X:") >= 0 && line.indexOf("Y:") >= 0;
+}
+
+bool queryValueLooksTrue(String value, bool defaultValue) {
+  if (value.length() == 0) return defaultValue;
+  value.trim();
+  value.toLowerCase();
+  return value == "1" || value == "true" || value == "yes" || value == "on" || value == "ok";
+}
+
+unsigned long queryTimeoutMs(unsigned long fallbackMs) {
+  if (!controlServer.hasArg("timeout")) return fallbackMs;
+
+  float seconds = controlServer.arg("timeout").toFloat();
+  if (seconds <= 0.0f) return fallbackMs;
+
+  unsigned long timeoutMs = (unsigned long)(seconds * 1000.0f);
+  if (timeoutMs < 500) timeoutMs = 500;
+  if (timeoutMs > 120000) timeoutMs = 120000;
+  return timeoutMs;
 }
 
 static const int REPLY_OK = 0;
@@ -109,15 +133,75 @@ String firmwareStatusName(int status) {
   return "timeout";
 }
 
-int waitForSingleArduinoReply(String &response) {
+int waitForArduinoOkCount(String &response, unsigned long timeoutMs, int targetOkCount) {
+  String line = "";
+  int okCount = 0;
+
+  unsigned long start = millis();
+
+  while (millis() - start < timeoutMs) {
+    while (arduinoSerial.available()) {
+      char c = arduinoSerial.read();
+      response += c;
+      Serial.write(c);
+
+      if (c == '\n' || c == '\r') {
+        String finishedLine = line;
+        finishedLine.trim();
+
+        if (finishedLine.length() > 0) {
+          if (isFirmwareErrorLine(finishedLine)) {
+            return REPLY_ERROR;
+          }
+
+          if (isFirmwareOkLine(finishedLine)) {
+            okCount++;
+            if (okCount >= targetOkCount) {
+              // Give the firmware a tiny moment to flush any trailing text.
+              unsigned long settleStart = millis();
+              while (millis() - settleStart < RESPONSE_SETTLE_MS) {
+                while (arduinoSerial.available()) {
+                  char extra = arduinoSerial.read();
+                  response += extra;
+                  Serial.write(extra);
+                  settleStart = millis();
+                }
+                delay(2);
+              }
+              return REPLY_OK;
+            }
+          }
+        }
+
+        line = "";
+      } else {
+        line += c;
+      }
+    }
+
+    delay(2);
+  }
+
+  if (response.length() == 0) {
+    response = "(no data received from Arduino)\n";
+  }
+
+  response += "\n(warning: timeout waiting for ";
+  response += String(targetOkCount);
+  response += " ok line(s) from Arduino)\n";
+  return REPLY_TIMEOUT;
+}
+
+int waitForSingleArduinoReply(String &response, unsigned long timeoutMs, String waitFor) {
   String line = "";
   int status = REPLY_TIMEOUT;
   bool gotTerminalLine = false;
+  bool sawPositionReport = false;
 
   unsigned long start = millis();
   unsigned long lastByte = millis();
 
-  while (millis() - start < COMMAND_TIMEOUT_MS) {
+  while (millis() - start < timeoutMs) {
     while (arduinoSerial.available()) {
       char c = arduinoSerial.read();
       response += c;
@@ -129,12 +213,24 @@ int waitForSingleArduinoReply(String &response) {
         finishedLine.trim();
 
         if (finishedLine.length() > 0) {
-          if (isFirmwareOkLine(finishedLine)) {
-            status = REPLY_OK;
-            gotTerminalLine = true;
-          } else if (isFirmwareErrorLine(finishedLine)) {
+          if (waitFor == "position" && lineContainsPositionReport(finishedLine)) {
+            sawPositionReport = true;
+          }
+
+          if (isFirmwareErrorLine(finishedLine)) {
             status = REPLY_ERROR;
             gotTerminalLine = true;
+          } else if (isFirmwareOkLine(finishedLine)) {
+            if (waitFor == "position") {
+              if (sawPositionReport) {
+                status = REPLY_OK;
+                gotTerminalLine = true;
+              }
+              // Ignore ok lines before the M114 position report.
+            } else {
+              status = REPLY_OK;
+              gotTerminalLine = true;
+            }
           }
         }
 
@@ -153,15 +249,20 @@ int waitForSingleArduinoReply(String &response) {
 
   if (line.length() > 0) {
     line.trim();
-    if (isFirmwareOkLine(line)) return REPLY_OK;
+    if (waitFor == "position" && lineContainsPositionReport(line)) sawPositionReport = true;
     if (isFirmwareErrorLine(line)) return REPLY_ERROR;
+    if (isFirmwareOkLine(line) && (waitFor != "position" || sawPositionReport)) return REPLY_OK;
   }
 
   if (response.length() == 0) {
     response = "(no data received from Arduino)\n";
   }
 
-  response += "\n(warning: timeout waiting for ok/error from Arduino)\n";
+  if (waitFor == "position") {
+    response += "\n(warning: timeout waiting for M114 position report + ok from Arduino)\n";
+  } else {
+    response += "\n(warning: timeout waiting for ok/error from Arduino)\n";
+  }
   return REPLY_TIMEOUT;
 }
 
@@ -265,18 +366,53 @@ void handleSend() {
     return;
   }
 
+  bool waitForOk = true;
+  if (controlServer.hasArg("wait")) {
+    waitForOk = queryValueLooksTrue(controlServer.arg("wait"), true);
+  }
+
+  String waitFor = "ok";
+  if (controlServer.hasArg("wait_for")) {
+    waitFor = controlServer.arg("wait_for");
+    waitFor.trim();
+    waitFor.toLowerCase();
+    if (waitFor != "ok" && waitFor != "position" && waitFor != "ok_count") waitFor = "ok";
+  }
+
+  int requestedOkCount = 1;
+  if (controlServer.hasArg("ok_count")) {
+    requestedOkCount = controlServer.arg("ok_count").toInt();
+    if (requestedOkCount < 1) requestedOkCount = 1;
+    if (requestedOkCount > 10) requestedOkCount = 10;
+  }
+
+  unsigned long timeoutMs = queryTimeoutMs(COMMAND_TIMEOUT_MS);
+
   // Clear old noise before starting a new HTTP command block.
   while (arduinoSerial.available()) arduinoSerial.read();
 
   Serial.println("\n===== HTTP /send =====");
+  Serial.print("wait=");
+  Serial.print(waitForOk ? "1" : "0");
+  Serial.print(" wait_for=");
+  Serial.print(waitFor);
+  if (waitFor == "ok_count") {
+    Serial.print(" ok_count=");
+    Serial.print(requestedOkCount);
+  }
+  Serial.print(" timeout_ms=");
+  Serial.println(timeoutMs);
   Serial.println("Received command block:");
   Serial.println(msg);
 
   String fullResponse = "";
   int sentLines = 0;
 
+  String lines[32];
+  int lineCount = 0;
+
   int start = 0;
-  while (start <= msg.length()) {
+  while (start <= msg.length() && lineCount < 32) {
     int newline = msg.indexOf('\n', start);
     String rawLine;
 
@@ -289,11 +425,27 @@ void handleSend() {
     }
 
     String line = cleanCommandLine(rawLine);
-    if (line.length() == 0) {
-      continue;
+    if (line.length() == 0) continue;
+    lines[lineCount++] = line;
+  }
+
+  if (lineCount == 0) {
+    controlServer.send(400, "text/plain", "empty command block after removing comments");
+    return;
+  }
+
+  if (waitForOk && waitFor == "ok_count") {
+    // Used for firmware macros such as START that print several ok lines.
+    // Send exactly one command line, then wait until the requested number of
+    // ok lines has been seen. This prevents the UI from sending M114 while the
+    // macro is still executing.
+    if (lineCount != 1) {
+      controlServer.send(400, "text/plain", "wait_for=ok_count expects exactly one command line");
+      return;
     }
 
     sentLines++;
+    String line = lines[0];
 
     Serial.print("\n>>> Arduino line ");
     Serial.print(sentLines);
@@ -306,28 +458,86 @@ void handleSend() {
 
     arduinoSerial.print(line);
     arduinoSerial.print('\n');
+    arduinoSerial.flush();
 
     String lineResponse = "";
-    int status = waitForSingleArduinoReply(lineResponse);
+    int status = waitForArduinoOkCount(lineResponse, timeoutMs, requestedOkCount);
     fullResponse += lineResponse;
-
     if (!fullResponse.endsWith("\n")) fullResponse += "\n";
-
     fullResponse += "<<< ";
     fullResponse += firmwareStatusName(status);
     fullResponse += "\n";
+  } else if (waitForOk && waitFor == "position") {
+    // Used by the UI for M400\nM114. Write the full block first, then ignore
+    // any ok before the actual M114 position report appears.
+    for (int i = 0; i < lineCount; i++) {
+      sentLines++;
+      String line = lines[i];
 
-    if (status != REPLY_OK) {
-      fullResponse += "(stopped: not sending remaining lines after ";
-      fullResponse += firmwareStatusName(status);
-      fullResponse += ")\n";
-      break;
+      Serial.print("\n>>> Arduino line ");
+      Serial.print(sentLines);
+      Serial.print(": ");
+      Serial.println(line);
+
+      fullResponse += ">>> ";
+      fullResponse += line;
+      fullResponse += "\n";
+
+      arduinoSerial.print(line);
+      arduinoSerial.print('\n');
+      arduinoSerial.flush();
+      delay(30);
     }
-  }
 
-  if (sentLines == 0) {
-    controlServer.send(400, "text/plain", "empty command block after removing comments");
-    return;
+    String lineResponse = "";
+    int status = waitForSingleArduinoReply(lineResponse, timeoutMs, "position");
+    fullResponse += lineResponse;
+    if (!fullResponse.endsWith("\n")) fullResponse += "\n";
+    fullResponse += "<<< ";
+    fullResponse += firmwareStatusName(status);
+    fullResponse += "\n";
+  } else {
+    for (int i = 0; i < lineCount; i++) {
+      sentLines++;
+      String line = lines[i];
+
+      Serial.print("\n>>> Arduino line ");
+      Serial.print(sentLines);
+      Serial.print(": ");
+      Serial.println(line);
+
+      fullResponse += ">>> ";
+      fullResponse += line;
+      fullResponse += "\n";
+
+      arduinoSerial.print(line);
+      arduinoSerial.print('\n');
+      arduinoSerial.flush();
+
+      if (waitForOk) {
+        String lineResponse = "";
+        int status = waitForSingleArduinoReply(lineResponse, timeoutMs, "ok");
+        fullResponse += lineResponse;
+        if (!fullResponse.endsWith("\n")) fullResponse += "\n";
+
+        fullResponse += "<<< ";
+        fullResponse += firmwareStatusName(status);
+        fullResponse += "\n";
+
+        if (status != REPLY_OK) {
+          fullResponse += "(stopped: not sending remaining lines after ";
+          fullResponse += firmwareStatusName(status);
+          fullResponse += ")\n";
+          break;
+        }
+      } else {
+        delay(30);
+      }
+    }
+
+    if (!waitForOk) {
+      fullResponse += "<<< sent without waiting for ok\n";
+    }
   }
 
   Serial.println("\n===== END RESPONSE =====");
@@ -529,7 +739,7 @@ bool initCamera() {
 // ================================================================
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(250000);
   delay(1000);
 
   Serial.println();

@@ -1,11 +1,11 @@
 const CONFIG = {
   espIp: localStorage.getItem("scaranoiEspIp") || "172.21.76.162",
 
-  // Python OpenCV + Arduino USB bridge. Run cv_server.py and open http://localhost:5000.
+  // Python OpenCV bridge. It still runs locally for camera processing/CV.
   cvServerUrl: localStorage.getItem("scaranoiCvServerUrl") || "http://localhost:5000",
 
-  // Robot command endpoint. 
-  robotControlUrl: localStorage.getItem("scaranoiRobotControlUrl") || "http://localhost:5000",
+  // Robot commands are now sent to the ESP32 HTTP bridge, not to the computer/USB bridge.
+  // The control URL is derived from espIp in getControlBaseUrl().
 
   arm: {
     link1: 185.412,
@@ -29,6 +29,13 @@ const CONFIG = {
     autoStepDelayMs: 50,
     // Max time to wait for one Hanoi physical substep to finish and acknowledge.
     substepTimeoutSeconds: 45,
+    // START is a firmware macro that currently prints more than one ok.
+    // The ESP bridge waits for this many ok lines before the UI continues.
+    startOkCount: 2,
+    startTimeoutSeconds: 90,
+    // After START, do not immediately run M400/M114. START already moved the arm
+    // and old firmware output can still be flushing; syncing here can make M114 timeout.
+    syncAfterStart: false,
     completionSyncCommand: "M400\nM114",
     completionTimeoutSeconds: 45,
 
@@ -80,7 +87,10 @@ const CONFIG = {
     enableMotors: "M17",
     disableMotors: "M18",
     emergencyStop: "M112",
-    homeSyncDelayMs: 3000
+    // Home can be slow. This is only a maximum safety timeout; M114 is sent
+    // immediately after G28 returns ok, not after a fixed delay.
+    homeTimeoutSeconds: 120,
+    positionSyncTimeoutSeconds: 10
   }
 };
 
@@ -93,8 +103,7 @@ function setEspIp(ip) {
 }
 
 function getControlBaseUrl() {
-  const clean = String(CONFIG.robotControlUrl || "").trim().replace(/\/$/, "");
-  return clean || getCvServerBaseUrl();
+  return `http://${CONFIG.espIp}`;
 }
 
 function getStreamUrl() {

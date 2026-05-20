@@ -231,25 +231,33 @@ function commandResponseFinishedOk(text) {
 async function sendRawGcode(gcode, label, options = {}) {
   const lines = gcode.split("\n").map(l => l.trim()).filter(l => l);
   const waitForPosition = Boolean(options.waitForPosition);
-  const expectOk = Boolean(options.expectOk || waitForPosition);
+  const waitForOkCount = Number(options.waitForOkCount || 0);
+  const expectOk = Boolean(options.expectOk || waitForPosition || waitForOkCount > 0);
   const timeoutSeconds = Number(options.timeoutSeconds ?? 2);
 
   appendLog(`> ${label}:\n${gcode}`);
   lastCommandEl.textContent = `${label} — ${gcode.replace(/\n/g, " | ")}`;
 
   try {
+    let waitForParam = "";
+    if (waitForPosition) {
+      waitForParam = "&wait_for=position";
+    } else if (waitForOkCount > 0) {
+      waitForParam = `&wait_for=ok_count&ok_count=${encodeURIComponent(String(waitForOkCount))}`;
+    }
+
     const url =
       `${getControlBaseUrl()}/send?msg=${encodeURIComponent(gcode)}` +
       `&wait=${expectOk ? "1" : "0"}` +
       `&timeout=${encodeURIComponent(String(timeoutSeconds))}` +
-      (waitForPosition ? "&wait_for=position" : "");
+      waitForParam;
 
     const res = await fetch(url);
     const text = await res.text();
 
     appendLog(`< ${text}`);
     lastResponseEl.textContent = text;
-    connectionStatusEl.textContent = `Connected to Arduino USB bridge at ${getControlBaseUrl()}`;
+    connectionStatusEl.textContent = `Connected to ESP serial bridge at ${getControlBaseUrl()}`;
     updateCameraLinks();
     if (parseM114Position(text)) appendLog("; Graph synced from M114.");
 
@@ -280,7 +288,7 @@ async function sendRawGcode(gcode, label, options = {}) {
     const msg = `Error: ${err}`;
     appendLog(`! ${msg}`);
     lastResponseEl.textContent = msg;
-    connectionStatusEl.textContent = "Arduino USB bridge disconnected or request failed";
+    connectionStatusEl.textContent = "ESP serial bridge disconnected or request failed";
     return false;
   }
 }
@@ -754,11 +762,12 @@ async function handleAction(action) {
   const gcodeToSend = getClampedJogGcode(action) || result.gcode;
 
   const expectsPosition = action === "get-position";
-  const expectsReply = expectsPosition || action === "check-endstops";
+  const isHome = action === "home";
+  const expectsReply = expectsPosition || action === "check-endstops" || isHome;
   const sentOk = await sendRawGcode(gcodeToSend, result.label, {
     expectOk: expectsReply,
     waitForPosition: expectsPosition,
-    timeoutSeconds: expectsReply ? 3 : 2
+    timeoutSeconds: isHome ? Number(CONFIG.system?.homeTimeoutSeconds ?? 120) : (expectsReply ? 3 : 2)
   });
   if (!sentOk) return;
 
@@ -771,15 +780,11 @@ async function handleAction(action) {
     if (m) currentServoAngle = Number(m[1]);
   }
   if (action === "home") {
-    const delayMs = Number(CONFIG.system?.homeSyncDelayMs ?? 3000);
-    if (delayMs > 0) {
-      appendLog(`; Waiting ${delayMs} ms before requesting position after Home…`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
+    appendLog("; Home acknowledged by firmware. Requesting position now…");
     await sendRawGcode(CONFIG.system.getPosition, "Get Position after Home", {
       expectOk: true,
       waitForPosition: true,
-      timeoutSeconds: 8
+      timeoutSeconds: Number(CONFIG.system?.positionSyncTimeoutSeconds ?? 10)
     });
   }
 }
@@ -788,13 +793,18 @@ async function handleCustomSend() {
   const v = customMsgInput.value.trim();
   if (!v) return;
 
-  // Most macros should be fire-and-forget, but status queries need the Arduino reply.
+  // Manual custom commands should also wait for firmware acknowledgement.
+  // Otherwise the UI can say "sent" while the Arduino is still busy and the
+  // firmware may swallow later commands during motion.
   const expectsPosition = /(^|\n)\s*M114\b/i.test(v);
-  const expectsReply = expectsPosition || /(^|\n)\s*M119\b/i.test(v);
+  const isStartOnly = /^\s*START\s*$/i.test(v);
   await sendRawGcode(v, "Custom G-code", {
-    expectOk: expectsReply,
+    expectOk: true,
     waitForPosition: expectsPosition,
-    timeoutSeconds: expectsReply ? 5 : 2
+    waitForOkCount: isStartOnly ? Number(CONFIG.hanoi?.startOkCount ?? 2) : 0,
+    timeoutSeconds: isStartOnly
+      ? Number(CONFIG.hanoi?.startTimeoutSeconds ?? 90)
+      : (expectsPosition ? Number(CONFIG.system?.positionSyncTimeoutSeconds ?? 10) : Number(CONFIG.hanoi?.substepTimeoutSeconds ?? 45))
   });
   customMsgInput.value = "";
 }
