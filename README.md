@@ -212,44 +212,35 @@ Close the arm segments with the laser-cut covers and verify that all internal co
 
 The gripper is the end-effector of the SCARA arm. It is designed to grasp, hold, transport, and release the Tower of Hanoi disks.
 
-The selected mechanism is a parallel-jaw gripper actuated by a rack-and-pinion system. This design allows both jaws to move symmetrically, which helps keep the disks centered during grasping.
+The selected system is a parallel-jaw gripper actuated by a rack-and-pinion mechanism. This design allows both jaws to move symmetrically, which helps keep the disks centered during grasping.
 
 ### Files to Laser Cut
 
 No laser-cut parts are required for the gripper.
 
-[If some final gripper parts are laser cut, insert them here.]
-
 ### Files to 3D Print
 
 [Insert gripper STL files.]
 
-- Main gripper frame
-- 2 racks
-- Pinion
-- 2 jaw holders
-- 2 jaws
-- Servo motor mount
-- Rail and guide features
-- Optional sensor holder
+- Gripper frame : 
+- 2 racks : 
+- Pinion : 
+- 2 jaws : 
+- 2 TPU layers (contact layers with disks) : 
 
 ### Other Parts
 
 - 1 DMS15 servo motor
-- 1 metallic servo hub
-- 2 steel guide rods, 6 mm diameter
-- LM6UU linear bearings, 6 mm × 12 mm × 19 mm
-- M3 screws
-- 1 FSR-402 force-sensitive resistor
-- Wires for the servo and FSR sensor
-- [Insert exact rod length.]
-- [Insert exact screw quantities.]
+- 2 aluminium guide rods, 8 mm diameter
+- LM8UU linear bearings, 8 mm × 12 mm × 19 mm
+- 4 M4 screws + 4 M4 inserts (to attach jaws to racks)
+- 4 M3 screws + 4 M3 inserts (to attach gripper frame to arm)
 
 ### Assembly Procedure
 
-Begin by 3D printing the main frame, racks, pinion, jaw holders, and jaws. Check that the racks slide smoothly inside the main frame before installing the servo motor.
+Begin by 3D printing the main frame, racks, pinion, and jaws. Check that the racks slide smoothly inside the main frame before installing the servo motor.
 
-Insert the two 6 mm steel guide rods through the gripper frame. These rods guide the jaw holders and reduce lateral play.
+Insert the two 8 mm aluminium guide rods through the gripper frame. These rods guide the jaw holders and reduce lateral play.
 
 Install the LM6UU linear bearings into the jaw holders. Each jaw holder should slide smoothly along the guide rods without excessive friction.
 
@@ -259,9 +250,7 @@ Mount the DMS15 servo motor at the rear of the structure. Attach the metallic se
 
 Position the pinion so that it meshes correctly with both racks. When the servo rotates, the two racks should move in opposite directions, producing symmetric opening and closing of the jaws.
 
-Attach the two jaws to the jaw holders. The inner surfaces of the jaws should remain parallel to ensure stable contact with the disks.
-
-Install the FSR-402 force-sensitive resistor into one of the jaws if force feedback is used. This sensor can help detect contact and avoid applying too much force on the disks.
+Attach the two jaws to the racks. The inner surfaces of the jaws should remain parallel to ensure stable contact with the disks.
 
 Test the gripper on all disk sizes before mounting it on the arm. Verify that the maximum jaw opening is sufficient for the largest disk and that the smallest disk can still be held reliably.
 
@@ -289,7 +278,7 @@ A camera support structure is integrated into the platform to provide a fixed ov
 
 [Insert disk STL files.]
 
-- 7 Hanoi disks
+- 5 Hanoi disks
 - Optional camera bracket
 - Optional disk markers
 
@@ -303,19 +292,15 @@ A camera support structure is integrated into the platform to provide a fixed ov
 
 ### Disk Dimensions
 
-The system uses seven disks. Each disk has a height of 15 mm and a central hole of 14 mm diameter. The disk diameters increase linearly from 20 mm to 80 mm.
-
-[A changer avec les bonnes dimesions]
+The system uses 5 disks. Each disk has a height of 15 mm and a central hole of 14 mm diameter. The disk diameters range from 53 mm to 90 mm.
 
 | Disk number | Diameter |
 |---|---|
-| 1, smallest | 20 mm |
-| 2 | 30 mm |
-| 3 | 40 mm |
-| 4 | 50 mm |
-| 5 | 60 mm |
-| 6 | 70 mm |
-| 7, largest | 80 mm |
+| 1, smallest | 53 mm |
+| 2 | 60 mm |
+| 3 | 70 mm |
+| 4 | 80 mm |
+| 5, largest | 90 mm |
 
 ### Assembly Procedure
 
@@ -323,7 +308,7 @@ Laser cut the main platform and the camera support structure from MDF. Assemble 
 
 Install the three aluminium pegs into the platform. The pegs should be spaced 90 mm apart from center to center. Make sure that they are vertical and firmly fixed.
 
-3D print the seven disks. Each disk should slide freely on the pegs without excessive friction. The 14 mm central hole provides clearance around the 10 mm pegs.
+3D print the 5 disks. Each disk should slide freely on the pegs without excessive friction. The 14 mm central hole provides clearance around the 10 mm pegs.
 
 Mount the camera support beam to the platform. This support keeps the ESP32-CAM at a fixed position relative to the Hanoi pegs, which improves repeatability during computer vision detection.
 
@@ -353,7 +338,6 @@ Power is supplied by a 12 V, 6 A DC power supply. Buck converters are used to pr
 - FTDI USB-to-TTL adapter for programming the ESP32-CAM
 - 8-channel logic-level converter
 - Limit switches
-- FSR-402 force-sensitive resistor
 - 12 V, 6 A DC power supply
 - LM2596 buck converters
 - Mini USB-B to USB-A cable
@@ -372,8 +356,6 @@ Connect the limit switches to the RAMPS inputs. These switches are used for homi
 Connect the DMS15 servo motor to the dedicated power line from the 7 V buck converter. Do not power the servo directly from the Arduino 5 V rail.
 
 Connect the ESP32-CAM to the system. Use the FTDI adapter for programming and use a logic-level converter for communication between the ESP32 and Arduino when required.
-
-Connect the FSR-402 force sensor to an analog input on the Arduino. This can be used to detect gripping contact and regulate the gripper force.
 
 Before powering the full system, verify all voltage rails with a multimeter:
 - 12 V main input
@@ -459,7 +441,6 @@ The planned approach uses a customized version of MARLIN firmware configured for
 - Drive the stepper motors through RAMPS and A4988 drivers
 - Control the gripper servo
 - Read limit switches
-- Read the FSR sensor
 - Execute homing routines
 - Enforce motion limits
 
@@ -624,7 +605,6 @@ Main electrical components include:
 - FTDI adapter
 - Logic-level converter
 - Limit switches
-- FSR-402 force-sensitive resistor
 - Buck converters
 - USB cables and wiring
 
@@ -645,7 +625,7 @@ Main mechanical components include:
 - Couplers
 - Screws and nuts
 - MDF sheets
-- PETG or PLA filament
+- PETG or PLA + TPU filament
 - Aluminium rods for pegs
 
 ---
