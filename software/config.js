@@ -25,8 +25,10 @@ const CONFIG = {
     targetPegWhenAlreadyOnRight: 0,
     // With M400/M114 sync, this only needs to be a short camera-settle delay.
     verifyDelayMs: 300,
-    // Small gap between substeps. The Arduino queues commands and M400 syncs after each full disk move.
-    autoStepDelayMs: 300,
+    // Small UI gap between substeps. The solver now waits for firmware ok on each substep.
+    autoStepDelayMs: 50,
+    // Max time to wait for one Hanoi physical substep to finish and acknowledge.
+    substepTimeoutSeconds: 45,
     completionSyncCommand: "M400\nM114",
     completionTimeoutSeconds: 45,
 

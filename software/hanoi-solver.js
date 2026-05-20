@@ -1,4 +1,3 @@
-
 // ─────────────────────────────────────────────
 //  HANOI ALGORITHM  (ported from hanoi_solver.py)
 // ─────────────────────────────────────────────
@@ -552,17 +551,39 @@ async function hanoiExecuteCurrentStep() {
   appendLog(step.gcode);
   console.log(`[Hanoi] ${moveLabel} — ${step.label}\n${step.gcode}`);
 
+  // Most Hanoi substeps now wait for Arduino ok, so the UI does not blindly
+  // fire commands faster than the firmware can process them.
+  //
+  // START is special because the current firmware macro internally calls several
+  // handlers that may print more than one ok. We send START without waiting,
+  // then immediately use M400+M114 to create a clean sync point before continuing.
+  const isInitStep = step.label === "Initialize arm from home";
   const sentOk = await sendRawGcode(step.gcode, `Hanoi ${step.label}`, {
-    expectOk: false
+    expectOk: !isInitStep,
+    timeoutSeconds: Number(CONFIG.hanoi?.substepTimeoutSeconds ?? 45)
   });
+
   if (!sentOk) {
     hanoiRunning = false;
     hanoiPaused = hanoiHasPendingWork();
     hanoiFullAuto = false;
     pendingExecution = null;
-    appendLog("! Hanoi paused because the bridge could not send this step.");
+    appendLog("! Hanoi paused because this step was not acknowledged by the firmware.");
     updateHanoiUI();
     return false;
+  }
+
+  if (isInitStep) {
+    const synced = await syncWorkspaceAfterHanoiMove();
+    if (!synced) {
+      hanoiRunning = false;
+      hanoiPaused = hanoiHasPendingWork();
+      hanoiFullAuto = false;
+      pendingExecution = null;
+      appendLog("! Hanoi paused because START could not be synced with M400/M114.");
+      updateHanoiUI();
+      return false;
+    }
   }
 
   hanoiCurrentStep++;
