@@ -131,70 +131,83 @@ The structure is divided into four main mechanical assemblies:
 
 ## Base
 
-The base is the main support of the robot. It contains most of the mechanical and electrical components and provides rigidity to the whole system.
+The base is the main structural support of SCARAnoi. It carries the vertical Z-axis mechanism, supports the rotating shoulder platform, and keeps the robot stable while the arm is moving.
 
-The base is designed as a closed MDF box. The structure uses finger joints to make assembly easier and stronger. Ventilation holes are added to improve airflow inside the box and reduce overheating during operation.
+The final base was redesigned as a laser-cut MDF structure with an attached electrical box. The goal of this electrical box is to keep the electronics accessible during debugging and integration. In the earlier setup, accessing the electronics was inconvenient because the arm structure had to be lifted or moved. With the attached electrical compartment, the Arduino Mega, RAMPS board, buck converters, wiring, and power connections can be reached more easily without disassembling the robot. The base therefore has two main roles. The main structure supports the mechanical load of the arm, while the attached electrical box keeps the control electronics separated from the moving parts. Ventilation holes were also added to improve airflow around the electronics. 
 
-The base also supports the vertical Z-axis and the rotating platform of the SCARA arm.
+On top of the moving Z-axis platform, the rotating shoulder platform provides the first rotational joint of the SCARA arm. This rotation is driven through a GT2 belt transmission using a 20-tooth pulley and a 160-tooth pulley. This increases the torque available at the shoulder, which is important because this joint supports the rest of the arm.
 
 ### Files to Laser Cut
 
 [Insert base DXF files.]
 
-- Base box side plates
-- Top plate
-- Bottom plate
-- Internal support plates
-- Bearing holder plates
-- Ventilated side panels
-- Electronic mounting plates, if used
+- Main base side plates
+- Main base top and bottom plates
+- electrical box side plates
+- Electrical box cover
+- Electrical box bottom plate
+- Electrical box cover holders
+- Upper lift mounting plate
 
 ### Files to 3D Print
 
 [Insert base STL files.]
 
-- Rotating platform
-- Bearing holders
-- Shaft interface parts
-- Pulley adapters
-- Spacers
-- Additional custom supports
+- Shoulder platform
+- Shoulder 160 teeths pulley
+- Shoulder platform cover
+- Rod clamp supports
+- Limit switch holders
+- Upper lift assembly side panel
+- Upper lift assembly cover plate
+- Mounting blocks
+- Limit switch actuators
 
-### Other Parts
+### Bill of Materials
 
-- 4 smooth rods, 8 mm diameter, 350 mm length
-- 1 T8 lead screw, 8 mm diameter, 400 mm length
-- Linear bearings for the vertical axis
-- 2 axial ball bearings, 51110, 50 × 70 × 14 mm
-- 1 deep groove ball bearing, 6807 / 61807, 35 × 47 × 7 mm
-- GT2 belt
-- 16-tooth GT2 pulley
-- 160-tooth GT2 pulley
-- Shaft coupler, 5 mm to 8 mm
-- M2.5, M3 and M4 screws
-- [Insert exact shaft dimensions.]
-- [Insert exact belt length.]
-- [Insert exact screw quantities.]
+| Part | Quantity | Specification / Notes |
+|---|---:|---|
+| Smooth rods | 3 | 8 mm diameter, 420 mm length |
+| T8 lead screw | 1 | 8 mm diameter, 400 mm length |
+| Axial ball bearings | 2 | 50 mm inner diameter, 70 mm outer diameter, 14 mm width |
+| Deep groove ball bearing | 1 | 10 mm inner diameter, 30 mm outer diameter, 9 mm width |
+| Deep groove ball bearing | 1 | 8 mm inner diameter, 22 mm outer diameter, 7 mm width |
+| GT2 belt | 1 | 6mm width, 400 mm length |
+| GT2 pulley | 1 | 20-tooth motor pulley (or 16 to have a perfect 1:10 ratio) |
+| Shaft coupler | 1 | 5 mm to 8 mm |
+| Nema-17 Stepper motor | 2 | For the Z-axis vertical motion and the shoulder rotation|
+| MDF sheet 10mm| 1 | For the box |
+| MDF sheet 6mm| 1 | For the NEMA motor mounting plate |
+| M2.5, M3 and M4 screws | As needed | For mechanical attachments |
+| M2.5, M3 and M4S Heat inserts | As needed | For mechanical attachments |
+| M10 Screw, Nut and washer | 1 | For fixing the shoulder to the base |
+| Limit switches | 4 | For homing the shoulder and Z axis |
 
 ### Assembly Procedure
 
-Laser cut the MDF parts for the base box and assemble the box using the finger joints. Make sure that the structure is square and rigid before permanently fixing the parts.
+Laser cut the MDF parts for the main base and the attached electrical box. Start by assembling the main SCARA base with the finger joints and check that the structure is square and rigid. Unlike the electrical box, the main SCARA base should not be permanently sealed. Some parts inside the base may still need to be accessed later, for example to tighten the shoulder screw or to rearrange wires going through the base toward the Hanoi platform. To make this possible, we used small 3D-printed mounting blocks placed inside the base corners. Each block has two M4 heat-set inserts, one for each adjacent side panel. The block is glued to the inner face of a horizontal panel, and the side panels are then screwed into the inserts using M4x12 screws. This keeps the structure rigid during operation while still allowing the side panels to be removed when needed. The electrical box is assembled separately. Its side and bottom panels can be glued normally, since the box remains accessible from its own opening. Once assembled, the electrical box is attached to the main base using M4 screws (four M4x20 and two M4X30) . Keeping the main base and the electrical box detachable made the development process easier. The mechanical structure could be assembled and adjusted independently, while the electronics could be placed, wired, tested, or debugged without waiting for the full mechanical assembly to be finished.
 
-Install the four 8 mm smooth rods vertically. These rods guide the Z-axis motion and prevent the moving platform from tilting during vertical movement.
+To make the next assembly steps easier, do not install the top face of the main SCARA base yet. For now, only assemble the side panels and keep the top open. This gives easier access to the inside of the base when mounting the Z-axis NEMA motor, the shoulder platform, the belt transmission, and the screw/nut assembly. If the top face is installed too early, it will likely need to be removed again during the next steps.
 
-Install the T8 lead screw in the center of the vertical axis. The lead screw converts motor rotation into vertical translation.
+Attach the shoulder platform to the 160-tooth pulley using four M2.5 × 12 mm screws. The shoulder platform and pulley were kept as separate printed parts to make iteration easier. During testing, if one section had a printing defect or needed a design change, we did not want to reprint the whole combined assembly. With this design, only the affected part has to be reprinted.To assemble them, insert four M2.5 heat-set inserts into the pulley, then screw the pulley to the shoulder platform.
 
-Mount the linear bearings onto the moving vertical platform and verify that the platform slides smoothly along the rods.
+Insert two M3 heat-set inserts for each rod clamp into the corresponding holes in the shoulder platform, for a total of 6 inserts. Then place the three rod clamps in position and attach them using M3×12 screws.
 
-Install the rotating platform on top of the base. The platform is supported by axial bearings arranged in a sandwich configuration. These bearings allow the system to support vertical loads while keeping the rotation smooth.
+The heat-set insert holes for the rod clamps pass through the shoulder platform. Flip the platform and reuse two of these holes to mount the limit switch actuators. Since one clamp is located on the belt side, avoid using that position and choose two accessible holes instead. Insert the heat-set inserts from the opposite side, then attach the two limit switch actuators two M3x12 screws, one for each. 
 
-Install the GT2 belt transmission system. The 16-tooth pulley drives the 160-tooth pulley, giving a 10:1 reduction ratio. This increases the available torque for the rotating platform.
+Now assemble the whole shoulder rotation stack on top of the main SCARA base. Place one axial ball bearing on the top face of the base, centered around the 10 mm hole. Before continuing, place the belt around the 160-tooth pulley so it is already in position for the belt transmission later. The 160-tooth pulley has a tight-fit circular recess on its bottom side for the bearing. Place the pulley on top of the first axial bearing, making sure that the bearing is properly seated inside the hole. On the top side of the platform, there is a small circular recess matching the size of the second axial bearing. Place the second axial bearing inside it. Then place the shoulder platform cover on top of the second bearing. Align the 10 mm holes of the shoulder, the pulley, the bearings, and the top face of the base. Insert the M10 screw through these aligned holes, from the top of the shoulder platform down through the pulley and the base top face, until it comes out on the other side. Finally, add the washer and the M10 nut from the bottom side, then tighten them carefully. The assembly should be tight enough to remove play, but not so tight that the shoulder rotation becomes difficult or creates too much friction. 
 
-Mount the motor responsible for the vertical motion and connect it to the lead screw using the shaft coupler.
+With the shoulder rotation stack assembled, the belt transmission can now be adjusted. Place the NEMA motor for the shoulder rotation in the slots of the top face of the main SCARA base, then attach the 20-tooth pulley to the motor shaft. Pass the belt around the 20-tooth pulley and the shoulder 160-tooth pulley. Slide the motor inside the slots to adjust the belt tension. The belt should be tight enough to avoid skipping, but not so tight that it makes the shoulder rotation harder to move. When the belt tension is correct, fix the NEMA motor in place using four M3 × 12 mm screws. 
 
-Finally, install the shaft interface and bearing holders. Verify that the rotating platform turns freely and that the vertical axis moves smoothly without wobbling.
+Before fully closing the main SCARA base by installing the top face, it is preferable to install and wire the three limit switches if possible (See the [Electronics](#electronics) section for the wiring details). This step can still be done later, but the top face of the box will have to be removed again. Since the box joints can be quite tight, removing it after assembly is a little tedious. It is easier to do this now, while the inside of the base is still accessible. Two of the limit switches are mounted directly on the main SCARA base. We used two M2×12 mm screws and nuts to fix them because it was the maximum length we could find for that screw size. Because the MDF is 10 mm thick and the limit switch is around 6 mm thick, the screws do not have much extra length. We therefore drilled the mounting holes in the MDF slightly deeper, just enough for the screws to go through the limit switch and still allow a nut to be placed on the other side. The third one is mounted on the shoulder platform. It is first screwed to a limit switch holder using two M2 screws. The limit switch holder is then screwed to the shoulder platform using two M2.5×8 screws. To do this, insert two M2.5 heat-set inserts into the corresponding holes in the shoulder platform. The limit switch wires can pass through the nearest hole in the main SCARA base. From there, route them and the motor wires through the opening between the main base and the electrical box so they can be connected to the electronics.
 
-[Insert image of full base assembly.]
+After this, the main SCARA base can be closed by placing the top face of the box. Once the top face is in place, install the three 8 mm smooth rods vertically. Insert each rod into its rod clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during the Z-axis motion and prevent it from tilting. Try to keep the rods as parallel as possible. If they are not aligned correctly, the shoulder platform may create friction or get stuck during vertical movement.
+
+Next, assemble the upper lift assembly. Take the upper lift assembly side panel and insert M3 heat-set inserts into the screw holes at the top and bottom. At the bottom, screw the side panel to the 6 mm MDF upper lift mounting plate. Place the Z-axis NEMA motor in the corresponding slot of the plate, then screw it in place. Attach the shaft coupler to the motor shaft. After this, screw the upper lift assembly cover plate to the top of the side panel. The T8 lead screw will then be connected to the other side of the shaft coupler, and the three 8 mm smooth rods should be inserted into their corresponding holes in the upper lift assembly cover plate.
+
+At this point, the fixed structure of the robot is assembled: the main SCARA base, the shoulder platform, the smooth rods, and the upper lift assembly. The horizontal arm can be mounted later. When mounting the arm, the upper lift assembly cover plate may need to be removed temporarily so the arm can be inserted onto the rods correctly.
+
+[Insert image of full base and electrical box assembly.]
 
 ---
 
