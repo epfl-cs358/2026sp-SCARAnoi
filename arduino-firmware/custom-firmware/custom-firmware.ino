@@ -156,14 +156,14 @@ static float E_STEPS_PER_DEG        = 200*16*3.2 / 360;
 // Conservative defaults. Increase only after testing.
 static float MAX_SHOULDER_DEG_S = 60.0f;
 static float MAX_ELBOW_DEG_S    = 120.0f;
-static float MAX_Z_MM_S         = 40.0f;
+static float MAX_Z_MM_S         = 28.0f;
 static float MAX_E_DEG_S        = 180.0f;
 
 static float CURRENT_SPEED = 2700.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
-static unsigned long MIN_STEP_TICK_US = 200;
+static unsigned long MIN_STEP_TICK_US = 100;
 
 // ------------------------- Acceleration --------------------------
 // Simple trapezoidal acceleration profile.
@@ -203,7 +203,7 @@ static int SCARA_ELBOW_SIGN = -1;
 
 // Split long Cartesian moves into small segments.
 // Smaller = closer to straight XY path, but more computation.
-static float CARTESIAN_SEGMENT_MM = 3.0f;
+static float CARTESIAN_SEGMENT_MM = 1.0f;
 
 // --------------------- Gripper orientation modes -----------------
 // 0 = independent mode: gripper keeps a fixed world direction.
@@ -304,10 +304,10 @@ static float Z_HOME_BACKOFF_MM         = 3.0f;
 static float E_HOME_BACKOFF_DEG        = 3.0f;
 
 // ------------------------- Servo gripper -------------------------
-static int SERVO_OPEN_ANGLE  = 20;
-static int SERVO_CLOSE_ANGLE = 90;
+static int SERVO_OPEN_ANGLE  = 120;
+static int SERVO_CLOSE_ANGLE = 0;
 static int SERVO_MIN_ANGLE   = 0;
-static int SERVO_MAX_ANGLE   = 180;
+static int SERVO_MAX_ANGLE   = 270;
 
 // ================================================================
 // ======================= INTERNAL STATE ==========================
@@ -603,10 +603,10 @@ bool inverseKinematics(float x, float y, float &shoulderDeg, float &elbowDeg) {
   float r2 = px * px + py * py;
   float r = sqrt(r2);
 
-  /*float maxReach = LINK_1_MM + LINK_2_MM;
+  float maxReach = LINK_1_MM + LINK_2_MM;
   float minReach = fabs(LINK_1_MM - LINK_2_MM);
 
-  if (r > maxReach + 0.001f) return false;
+  /*if (r > maxReach + 0.001f) return false;
   if (r < minReach - 0.001f) return false;
   if (r < FORBIDDEN_RADIUS_MM) return false;*/
 
@@ -1612,7 +1612,7 @@ float getCurrentPegY_Down() {
 }
 
 
-void handleMove(const String &line) {
+bool handleMove(const String &line) {
   float feed = getParam(line, 'F', CURRENT_SPEED);
   CURRENT_SPEED = feed;
 
@@ -1632,10 +1632,7 @@ void handleMove(const String &line) {
     if (hasParam(line, 'Z')) targetZ += getParam(line, 'Z', 0.0f);
     if (hasParam(line, 'E')) targetE += getParam(line, 'E', 0.0f);
   }
-
-  if (moveLinearCartesian(targetX, targetY, targetZ, targetE, feed)) {
-    printOk();
-  }
+  return moveLinearCartesian(targetX, targetY, targetZ, targetE, feed);
 }
 
 void handleCommand(String rawLine) {
@@ -1651,34 +1648,96 @@ void handleCommand(String rawLine) {
   if (line == "START") {
     handleRawMoveM360("M360 X" + String(X_START) + " Y" + String(Y_START) + " Z" + String(Z_START) + " E" + String(E_START));
     handleM361("M361 S0");
-    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP));
+    if (
+      handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up())) &&
+      handleMove("G1 Z" + String(Z_UP))
+    ) {
+      printOk();
+    }
     return;
   }
     // UP: Moves to the UP X/Y coordinates for the current peg, at Z_UP height
   if (line == "UP") { 
-    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    if (handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP))) {
+      printOk();
+    } 
     return; 
   }
   
-  if (line == "LAYER1") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER1)); return; }
-  if (line == "LAYER2") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER2)); return; }
-  if (line == "LAYER3") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER3)); return; }
-  if (line == "LAYER4") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER4)); return; }
-  if (line == "LAYER5") { handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down()) + " Z" + String(Z_LAYER5)); return; }
+  if (line == "LAYER1") {
+    if (
+      handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down())) &&
+      handleMove("G1 Z" + String(Z_LAYER1))
+    ) {
+      printOk();
+    }
+    return;
+  }
+  if (line == "LAYER2") {
+    if (
+      handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down())) &&
+      handleMove("G1 Z" + String(Z_LAYER2))
+    ) {
+      printOk();
+    }
+    return;
+  }
+  if (line == "LAYER3") {
+    if (
+      handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down())) &&
+      handleMove("G1 Z" + String(Z_LAYER3))
+    ) {
+      printOk();
+    }
+    return;
+  }
+  if (line == "LAYER4") {
+    if (
+      handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down())) &&
+      handleMove("G1 Z" + String(Z_LAYER4))
+    ) {
+      printOk();
+    }
+    return;
+  }
+  if (line == "LAYER5") {
+    if (
+      handleMove("G1 X" + String(getCurrentPegX_Down()) + " Y" + String(getCurrentPegY_Down())) &&
+      handleMove("G1 Z" + String(Z_LAYER5))
+    ) {
+      printOk();
+    }
+    return;
+  }
 
   if (line == "PEG2") { 
     CURRENT_PEG = 2; 
-    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    if (
+      handleMove("G1 Z" + String(Z_UP)) &&
+      handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()))
+    ) {
+      printOk();
+    }
     return; 
   }
   if (line == "PEG1") { 
     CURRENT_PEG = 1; 
-    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    if (
+      handleMove("G1 Z" + String(Z_UP)) &&
+      handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()))
+    ) {
+      printOk();
+    }
     return; 
   }
   if (line == "PEG0") { 
     CURRENT_PEG = 0; 
-    handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()) + " Z" + String(Z_UP)); 
+    if (
+      handleMove("G1 Z" + String(Z_UP)) &&
+      handleMove("G1 X" + String(getCurrentPegX_Up()) + " Y" + String(getCurrentPegY_Up()))
+    ) {
+      printOk();
+    }
     return; 
   }
 
@@ -1688,8 +1747,16 @@ void handleCommand(String rawLine) {
   }
 
 
-  if (line == "OPEN") { handleM280("M280 P0 S" + String(ANGLE_OPEN)); return; }
-  if (line == "CLOSE") { handleM280("M280 P0 S" + String(ANGLE_CLOSE)); return; }
+  if (line == "OPEN") { 
+    handleM280("M280 P0 S" + String(SERVO_OPEN_ANGLE));
+    printOk();
+    return; 
+  }
+  if (line == "CLOSE") { 
+    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE)); 
+    printOk();
+    return; 
+  }
 
     // --- CENTER MEASUREMENT COMMANDS ---
   if (line == "CENTER X") { 
@@ -1724,7 +1791,9 @@ void handleCommand(String rawLine) {
   }
 
   if (g == 0 || g == 1) {
-    handleMove(line);
+    if (handleMove(line)) {
+      printOk();
+    }
     return;
   }
 
@@ -1736,7 +1805,10 @@ void handleCommand(String rawLine) {
   }
 
   if (g == 28) {
-    if (handleG28(line)) printOk();
+    if (handleG28(line)) {
+      handleM280("M280 P0 S" + String(SERVO_OPEN_ANGLE));
+      printOk();
+    }
     return;
   }
 
