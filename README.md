@@ -1,15 +1,65 @@
+<p align="center">
+  <img src="docs/images/logo.svg" alt="SCARAnoi logo" width="400"/>
+</p>
+
+<p align="center">
+  A SCARA robotic arm designed to solve the Tower of Hanoi using computer vision.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Robot-SCARA%20Arm-blue?style=for-the-badge" alt="SCARA Arm"/>
+  <img src="https://img.shields.io/badge/Task-Tower%20of%20Hanoi-green?style=for-the-badge" alt="Tower of Hanoi"/>
+  <img src="https://img.shields.io/badge/Vision-ESP32--CAM-orange?style=for-the-badge" alt="ESP32-CAM"/>
+  <img src="https://img.shields.io/badge/Control-Arduino%20%2B%20RAMPS-red?style=for-the-badge" alt="Arduino and RAMPS"/>
+</p>
+
+
 # SCARA Arm - Solving Hanoi Tower
+
 The SCARAnoi project aims to design and build a SCARA robot arm capable of solving the Tower of Hanoi problem using computer vision and autonomous manipulation.
 
-The system combines a mechanically designed SCARA arm, a vertical motion axis, a parallel-jaw gripper, a Hanoi platform with three pegs and multiple disks, and a camera-based detection pipeline. The robot detects the position and size of the disks, determines the current configuration of the puzzle, computes the required sequence of moves, and executes the corresponding pick-and-place actions.
+The system combines a mechanically designed SCARA arm, a vertical motion axis, a parallel-jaw gripper, a Hanoi platform with three pegs and multiple disks, and a camera-based detection pipeline. The robot detects the position and size of the disks, determines the current configuration of the puzzle, computes the required sequence of moves, and executes the corresponding pick-and-place actions. It is designed to solve standard Tower of Hanoi configurations and to handle intermediate or non-standard configurations by recomputing the solution from the detected state.
 
-The goal of this project is to reproduce the essential principles of robotic manipulation, perception, motion planning, and embedded control in a compact educational platform. The robot is designed to solve standard Tower of Hanoi configurations and, if time permits, to handle intermediate or non-standard configurations by recomputing the solution from the detected state.
+Beyond the final demo, the project is meant to be reusable and extensible. The mechanical subsystems, perception pipeline, and motion control logic are separated as much as possible so that anyone can improve individual parts of the project without redesigning the entire system from scratch.
 
-The SCARAnoi robot operates with several controlled motions: horizontal arm motion through two rotational joints, vertical motion along the Z-axis, and gripper actuation for grabbing and releasing disks. The final system is intended to demonstrate how mechanical design, electronics, software, and computer vision can be integrated into a complete autonomous robotic platform.
+Enjoy building!
 
-Beyond the final demo, the project is meant to be reusable and extensible. The mechanical subsystems, perception pipeline, and motion control logic are separated as much as possible so that future teams can improve individual parts of the project without redesigning the entire system from scratch.
+---
 
-Enjoy building! We look forward to seeing how future teams will improve and extend this project.
+# Table of Contents
+
+- [Autonomous Hanoi Solving](#autonomous-hanoi-solving)
+- [How to Build](#how-to-build)
+  - [Prerequisites](#prerequisites)
+- [Hardware](#hardware)
+  - [Base](#base)
+  - [Arm](#arm)
+  - [Gripper](#gripper)
+  - [Hanoi Platform and Camera Support](#hanoi-platform-and-camera-support)
+- [Electronics](#electronics)
+- [Software](#software)
+  - [Laptop or Server Software](#laptop-or-server-software)
+  - [ESP32 Firmware](#esp32-firmware)
+  - [Arduino Firmware](#arduino-firmware)
+- [Motion](#motion)
+  - [Shoulder and Elbow Motion](#shoulder-and-elbow-motion)
+  - [Z-Axis Motion](#z-axis-motion)
+  - [Gripper Motion](#gripper-motion)
+  - [Homing and Limits](#homing-and-limits)
+- [Computer Vision](#computer-vision)
+- [Hanoi Algorithm](#hanoi-algorithm)
+- [Autonomous Operation](#autonomous-operation)
+- [Manual Control](#manual-control)
+- [Bill of Materials](#bill-of-materials)
+  - [Electrical Components](#electrical-components)
+  - [Mechanical Components](#mechanical-components)
+- [Risk Assessment](#risk-assessment)
+  - [Mechanical Risks](#mechanical-risks)
+  - [Electrical Risks](#electrical-risks)
+  - [Software Risks](#software-risks)
+  - [Collision Risks](#collision-risks)
+- [Possible Improvements](#possible-improvements)
+- [Top contributors](#top-contributors)
 
 ---
 
@@ -25,48 +75,52 @@ This video shows the SCARAnoi robot solving the Tower of Hanoi problem autonomou
 
 ## Prerequisites
 
+Before starting the build, make sure you have access to the fabrication tools needed for both the mechanical structure and the electronics. SCARAnoi is not only a 3D-printed robot: it also uses laser-cut MDF parts, rods, bearings, belts, motors, wiring, and embedded electronics. A small mechanical workshop setup is therefore very useful.
+
 ### 3D Printer
 
-Several components of the SCARAnoi robot are designed to be 3D printed. These include parts of the arm, gripper, racks, pinion, jaw holders, jaws, disks, and several mechanical adapters used throughout the assembly.
+A 3D printer is needed for most of the custom mechanical parts of the robot. This includes parts of the SCARA arm, the gripper frame, the racks and pinion, the jaw holders, the jaws, the Hanoi disks, pulley adapters, spacers, and other small mechanical interfaces.
 
-A 3D printer capable of printing standard rigid materials such as PETG or PLA is required. PETG is recommended for parts that are repeatedly handled or mechanically stressed, such as the disks and gripper components, because of its impact resistance and good layer adhesion.
+Most of the 3D-printed parts of SCARAnoi were made in PETG. TPU was used only for the side contact pieces of the gripper jaws. These softer pieces improve contact with the disks and help prevent slipping during pick-and-place movements.
+
 
 ### Laser Cutter
 
-Several structural parts are designed to be laser cut from MDF. This includes the base box, top covers, Hanoi platform, camera support, and other flat structural components.
+A laser cutter is required for the flat MDF structure of the robot. 
 
-A laser cutter is required to manufacture these parts accurately, especially for finger joints, tab-and-slot joints, and aligned holes.
+Make sure the MDF thickness matches the design files. If the material thickness is different, the slots may become too loose or too tight and the assembly may need to be adjusted.
 
 ### Soldering Equipment
 
-The robot contains several electronic components, including stepper motors, limit switches, an ESP32-CAM, a servo motor, buck converters, and an Arduino Mega with RAMPS 1.4.
+Soldering equipment is needed for the electrical part of the robot. The system includes stepper motors, limit switches, an ESP32-CAM, a servo motor, buck converters, an Arduino Mega, and a RAMPS 1.4 board.
 
-Soldering equipment is required for reliable wiring, cable extensions, and stable electrical connections, especially around moving joints where wires may be repeatedly bent during operation.
+Heat-shrink tubing, connectors, and proper cable management are strongly recommended to avoid loose contacts, short circuits, or communication issues between the ESP32 and the Arduino.
 
-### Mechanical Workshop
+### Mechanical Tools
 
-Access to basic mechanical tools is required. Some operations may include cutting rods, drilling holes, preparing shafts, adjusting mechanical tolerances, and assembling the moving joints.
+Basic mechanical tools are required for assembling and adjusting the robot. 
 
-Exact workshop requirements may depend on the final manufacturing choices.
+Some parts may need small manual adjustments after fabrication. For example, rods may need to be cut to length, holes may need to be cleaned, and bearings or shafts may need to be fitted carefully.
+
+Pay special attention to the moving assemblies. The Z-axis rods, lead screw, shoulder rotation, belts, pulleys, and gripper racks should move smoothly without excessive friction. Small alignment errors can create noise, wobbling, or missed steps during motion.
 
 ### Drill
 
-A drill is needed for preparing holes in MDF, mounting components, attaching rods, fixing the pegs, and adjusting parts during assembly.
+A drill is useful for preparing or adjusting holes in MDF and 3D-printed parts. 
+
+Be careful when drilling 3D-printed parts. If a hole becomes too large, the part may no longer hold screws, rods, or bearings firmly.
 
 ### Computer
 
-A laptop or desktop computer is required to run the high-level software, including the computer vision pipeline, the Hanoi solving algorithm, and communication with the ESP32 or Arduino system.
+A laptop or desktop computer is required to program and control the system. It is used to flash the Arduino firmware, program the ESP32-CAM, run the computer vision code, use the manual control interface, and test the autonomous Hanoi solver.
 
 ---
-
-
 
 
 # Hardware
 
 The hardware of the SCARAnoi project is composed of a SCARA robot arm designed to solve the Tower of Hanoi problem. The system consists of a base, a two-segment arm, a gripper, and a Hanoi platform with camera support.
-
-The robot combines 3D-printed parts, laser-cut MDF parts, aluminium rods, steel guide rods, bearings, belts, pulleys, motors, and standard screws. The structure is divided into four main mechanical assemblies:
+The structure is divided into four main mechanical assemblies:
 
 - Base
 - Arm
@@ -660,3 +714,20 @@ The Hanoi solver must validate detected configurations before executing movement
 
 The gripper may collide with the pegs or platform if calibration is inaccurate. All new movement sequences should first be tested slowly and with emergency stop access.
 
+---
+# Possible Improvements
+
+[ A list of possible improvements here ]
+
+---
+# Top contributors:
+
+This project was developed by:
+
+- Rania Hida (@Rania5724)
+- Mehdi Belhaj (@)
+- Youssef Benhayoun Sadafi
+- Ozan Esref Sahingöz
+- Jonathan Nilsson Pilemand
+- Maha El Qabli
+- Davood Hashimi
