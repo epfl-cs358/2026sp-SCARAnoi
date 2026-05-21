@@ -72,11 +72,11 @@ static float Z_START = 0.0f;
 static float E_START = 121.711f;
 
 static float Z_UP = -85.0f;
-static float Z_LAYER1 = -230.0f;
-static float Z_LAYER2 = -215.0f;
-static float Z_LAYER3 = -200.0f;
-static float Z_LAYER4 = -185.0f;
-static float Z_LAYER5 = -170.0f;
+static float Z_LAYER1 = -232.0f;
+static float Z_LAYER2 = -217.0f;
+static float Z_LAYER3 = -202.0f;
+static float Z_LAYER4 = -187.0f;
+static float Z_LAYER5 = -172.0f;
 
 static float X_PEG2 = 145.0f;
 static float X_PEG1 = 18.0f;
@@ -86,13 +86,13 @@ static float Y_PEG2 = 275.0f;
 static float Y_PEG1 = 275.0f;
 static float Y_PEG0 = 275.0f;
 
-static float X_PEG2_UP = 140.0f;
-static float X_PEG1_UP = 22.0f;
-static float X_PEG0_UP = -95.0f;
+static float X_PEG2_UP = 147.0f;
+static float X_PEG1_UP = 28.0f;
+static float X_PEG0_UP = -90.0f;
 
 static float Y_PEG2_UP = 258.0f;
-static float Y_PEG1_UP = 265.0f;
-static float Y_PEG0_UP = 275.0f;
+static float Y_PEG1_UP = 268.0f;
+static float Y_PEG0_UP = 278.0f;
 
 static int ANGLE_OPEN = 120;
 static int ANGLE_CLOSE = 0;
@@ -154,12 +154,13 @@ static float E_STEPS_PER_DEG        = 200*16*3.2 / 360;
 
 // ------------------------- Speed limits --------------------------
 // Conservative defaults. Increase only after testing.
-static float MAX_SHOULDER_DEG_S = 60.0f;
-static float MAX_ELBOW_DEG_S    = 120.0f;
-static float MAX_Z_MM_S         = 28.0f;
-static float MAX_E_DEG_S        = 180.0f;
+static float MAX_SHOULDER_DEG_S = 140.0f;
+static float MAX_ELBOW_DEG_S    = 350.0f;
+static float MAX_Z_MM_S         = 40.0f;
+static float MAX_E_DEG_S        = 350.0f;
 
-static float CURRENT_SPEED = 2700.0f;
+static float CURRENT_SPEED = 3500.0f;
+static const float SIDE_SPEED = 12000.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
@@ -285,10 +286,10 @@ static float E_HOME_DEG        = -121.711f;
 // The reported logical E is computed from this and the current gripper mode.
 
 // Homing speeds.
-static float SHOULDER_HOME_DEG_S = 35.0f;
-static float ELBOW_HOME_DEG_S    = 35.0f;
+static float SHOULDER_HOME_DEG_S = 50.0f;
+static float ELBOW_HOME_DEG_S    = 50.0f;
 static float Z_HOME_MM_S         = 20.0f;
-static float E_HOME_DEG_S        = 35.0f;
+static float E_HOME_DEG_S        = 50.0f;
 
 // Homing travel limits.
 // If no endstop triggers after this much movement, homing fails.
@@ -697,7 +698,7 @@ unsigned long computeTickDelayUs(
   float requiredSeconds = 0.0f;
 
   // Clamp feedrate to prevent overflow
-  if (feedMmPerMin > 10000.0f) feedMmPerMin = 10000.0f;
+  if (feedMmPerMin > 35000.0f) feedMmPerMin = 35000.0f;
   if (feedMmPerMin < 0.1f) feedMmPerMin = 0.1f;
 
   // XY feedrate (not including Z)
@@ -740,8 +741,6 @@ bool moveJointsToMotor(
     return false;
   }
 
-  enableMotors();
-
   long targetShoulderSteps = lround(targetShoulderDeg * SHOULDER_STEPS_PER_DEG);
   long targetElbowSteps    = lround(targetElbowDeg    * ELBOW_STEPS_PER_DEG);
   long targetZSteps        = lround(targetZMm         * Z_STEPS_PER_MM);
@@ -751,6 +750,12 @@ bool moveJointsToMotor(
   long dEl = targetElbowSteps - elbowSteps;
   long dZ = targetZSteps - zSteps;
   long dE = targetESteps - eSteps;
+
+    // Enable only axes that will actually move this command
+  if (dS != 0) enableMotorByLetter('X'); else disableMotorByLetter('X');
+  if (dEl != 0) enableMotorByLetter('Y'); else disableMotorByLetter('Y');
+  if (dZ != 0) enableMotorByLetter('Z'); else disableMotorByLetter('Z');
+  if (dE != 0) enableMotorByLetter('E'); else disableMotorByLetter('E');
 
   long absS = labs(dS);
   long absEl = labs(dEl);
@@ -883,6 +888,8 @@ bool moveJointsToMotor(
   current.e = targetLogicalEDeg;
   current.eMotorDeg = targetEMotorDeg;
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
+
+  disableMotors();
 
   return true;
 }
@@ -1018,8 +1025,6 @@ bool homeSingleJoint(
     return true;
   }
 
-  enableMotors();
-
   bool useTargetMin = homeDir < 0;
   // FIXED: Correct logic for min/max endstop checks
   if (useTargetMin && !useMin) {
@@ -1120,7 +1125,8 @@ bool homeShoulder() {
 }
 
 bool homeElbow() {
-  return homeSingleJoint(
+  enableMotorByLetter('E');
+  bool homing = homeSingleJoint(
     elbowAxis,
     elbowSteps,
     ELBOW_STEPS_PER_DEG,
@@ -1135,6 +1141,8 @@ bool homeElbow() {
     ELBOW_HOME_DEG,
     (float)GRIPPER_COMPENSATION_SIGN
   );
+  disableMotorByLetter('E');
+  return homing;
 }
 
 bool homeE() {
@@ -1183,19 +1191,31 @@ bool handleG28(const String &line) {
   // Home E first, otherwise a full G28 would compensate E during X/Y homing,
   // then overwrite that compensation by homing E at the end.
   if (homeAll || hasZ) {
-    if (!homeZ()) return false;
+    enableMotorByLetter('Z');
+    bool homed = homeZ();
+    disableMotorByLetter('Z');
+    if (!homed) return false;
   }
 
   if (homeAll || hasX) {
-    if (!homeShoulder()) return false;
+    enableMotorByLetter('X');
+    bool homed = homeShoulder();
+    disableMotorByLetter('X');
+    if (!homed) return false;
   }
 
   if (homeAll || hasY) {
-    if (!homeElbow()) return false;
+    enableMotorByLetter('Y');
+    bool homed = homeElbow();
+    disableMotorByLetter('Y');
+    if (!homed) return false;
   }
 
   if (homeAll || hasE) {
-    if (!homeE()) return false;
+    enableMotorByLetter('E');
+    bool homed = homeE();
+    disableMotorByLetter('E');
+    if (!homed) return false;
   }
 
   updatePositionAfterHoming();
@@ -1508,6 +1528,10 @@ void handleM280(const String &line) {
   }
 
   gripperServo.write(angle);
+  delay(200);
+
+  gripperServo.detach();
+  gripperAttached = false;
 
   G_CODE_SERIAL.print(F("echo: servo P0 set to "));
   G_CODE_SERIAL.println(angle);
@@ -1711,6 +1735,8 @@ void handleCommand(String rawLine) {
   }
 
   if (line == "PEG2") { 
+    float old_speed = CURRENT_SPEED;
+    CURRENT_SPEED = SIDE_SPEED;
     CURRENT_PEG = 2; 
     if (
       handleMove("G1 Z" + String(Z_UP)) &&
@@ -1718,9 +1744,12 @@ void handleCommand(String rawLine) {
     ) {
       printOk();
     }
+    CURRENT_SPEED = old_speed;
     return; 
   }
   if (line == "PEG1") { 
+    float old_speed = CURRENT_SPEED;
+    CURRENT_SPEED = SIDE_SPEED;
     CURRENT_PEG = 1; 
     if (
       handleMove("G1 Z" + String(Z_UP)) &&
@@ -1728,9 +1757,12 @@ void handleCommand(String rawLine) {
     ) {
       printOk();
     }
+    CURRENT_SPEED = old_speed;
     return; 
   }
   if (line == "PEG0") { 
+    float old_speed = CURRENT_SPEED;
+    CURRENT_SPEED = SIDE_SPEED;
     CURRENT_PEG = 0; 
     if (
       handleMove("G1 Z" + String(Z_UP)) &&
@@ -1738,6 +1770,7 @@ void handleCommand(String rawLine) {
     ) {
       printOk();
     }
+    CURRENT_SPEED = old_speed;
     return; 
   }
 
