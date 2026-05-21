@@ -722,12 +722,12 @@ The gripper may collide with the pegs or platform if calibration is inaccurate. 
 ---
 # Top contributors:
 
-This project was developed by:
+This project was made by:
 
-- Rania Hida (@Rania5724)
-- Mehdi Belhaj (@)
-- Youssef Benhayoun Sadafi
-- Ozan Esref Sahingöz
-- Jonathan Nilsson Pilemand
-- Maha El Qabli
-- Davood Hashimi
+- Rania Hida ([@Rania5724](https://github.com/Rania5724))
+- Mehdi Belhaj ([@mehdi754-hub](https://github.com/mehdi754-hub))
+- Youssef Benhayoun Sadafi ([@youssef-9511](https://github.com/youssef-9511))
+- Ozan Esref Sahingöz ([@ozan-sz](https://github.com/ozan-sz))
+- Jonathan Nilsson Pilemand ([@JonathanPilemand](https://github.com/JonathanPilemand))
+- Maha El Qabli ([@melqabli](https://github.com/melqabli))
+- Davood Hashimi ([@Davood-H](https://github.com/Davood-H))
