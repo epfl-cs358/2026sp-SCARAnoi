@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SCARAnoi Control Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <main class="pro-app">
+    <header class="pro-topbar">
+      <div class="pro-brand pro-brand-logo-only" aria-label="SCARAnoi Hanoi Control Panel">
+        <div class="pro-logo-full" role="img" aria-label="SCARAnoi logo"></div>
+      </div>
+
+      <div class="pro-topbar-right">
+        <div class="pro-ip-box">
+          <label for="espIpInput">ESP32 camera IP</label>
+          <input id="espIpInput" type="text" placeholder="172.21.x.x" />
+          <button class="btn btn-secondary btn-small" id="saveEspIpBtn" type="button">Save</button>
+        </div>
+
+        <div class="pro-position-strip" aria-label="Current robot position">
+          <span>X <strong id="coordX">--</strong></span>
+          <span>Y <strong id="coordY">--</strong></span>
+          <span>Z <strong id="coordZ">--</strong></span>
+          <span>E <strong id="coordE">--</strong>°</span>
+        </div>
+
+        <button class="btn btn-danger pro-estop" data-action="emergency-stop" data-command="emergency-stop" type="button">Emergency stop</button>
+      </div>
+    </header>
+
+
+    <section class="pro-mission-panel">
+      <div class="pro-mission-heading">
+        <div>
+          <div class="pro-kicker">Hanoi workflow</div>
+        </div>
+        <span class="hanoi-status-chip" id="hanoiStatus">Idle</span>
+      </div>
+
+      <div class="pro-main-actions">
+        <button class="btn btn-primary pro-action-primary" id="hanoiDetectSolveBtn" type="button">Capture + solve</button>
+        <button class="btn btn-primary" id="hanoiRunBtn" disabled type="button">Run automatically</button>
+        <button class="btn btn-secondary" id="hanoiApproveBtn" disabled type="button">Step approval</button>
+        <button class="btn btn-secondary" id="hanoiStopBtn" disabled type="button">Pause</button>
+        <button class="btn btn-secondary" id="hanoiResumeBtn" disabled type="button">Resume</button>
+        <button class="btn btn-secondary" id="hanoiResetBtn" type="button">Reset</button>
+      </div>
+
+      <div class="pro-flow">
+        <div class="pro-flow-step"><span>1</span><strong>Capture</strong><small>ESP32 still image + CV</small></div>
+        <div class="pro-flow-step"><span>2</span><strong>Plan</strong><small>Hanoi move queue</small></div>
+        <div class="pro-flow-step"><span>3</span><strong>Execute</strong><small>G-code through ESP serial bridge</small></div>
+      </div>
+    </section>
+
+    <section class="pro-dashboard-grid">
+      <section class="card pro-card pro-camera-card">
+        <div class="card-header pro-card-header">
+          <div>
+            <div class="pro-kicker">Camera</div>
+            <h2>OpenCV live view</h2>
+          </div>
+          <div class="pro-subtle-actions">
+            <button class="btn btn-secondary btn-small" id="reloadCameraBtn" type="button">Reload</button>
+            <button class="btn btn-secondary btn-small" id="pauseCameraBtn" type="button">Pause</button>
+            <a class="btn btn-secondary btn-small camera-link" id="cameraCaptureLink" href="#" target="_blank" rel="noopener noreferrer">Still</a>
+          </div>
+        </div>
+        <div class="card-body pro-camera-body">
+          <div class="pro-camera-frame">
+            <img id="cameraFeed" class="camera-feed" alt="OpenCV annotated ESP32-CAM stream" />
+          </div>
+          <div class="pro-cv-line">
+            <span>Last captured state</span>
+            <strong id="cvDetectionSummary">No detection yet.</strong>
+          </div>
+
+          <div id="hanoiVerificationPanel" class="hanoi-verification-panel" hidden>
+            <div class="hanoi-verification-copy">
+              <strong id="hanoiVerificationTitle">CV check needs decision</strong>
+              <div id="hanoiVerificationBody">Expected and detected states will appear here.</div>
+            </div>
+            <div class="hanoi-verification-actions">
+              <button class="btn btn-primary btn-small" id="hanoiRedoMoveBtn" type="button" disabled>Redo previous action</button>
+              <button class="btn btn-secondary btn-small" id="hanoiIgnoreVerificationBtn" type="button" disabled>Ignore and proceed</button>
+            </div>
+          </div>
+          <details class="pro-soft-details">
+            <summary>Show last annotated snapshot</summary>
+            <canvas id="cvSnapshotCanvas" class="cv-snapshot-canvas"></canvas>
+          </details>
+        </div>
+      </section>
+
+      <section class="card pro-card pro-plan-card">
+        <div class="card-header pro-card-header">
+          <div>
+            <div class="pro-kicker">Puzzle state</div>
+            <h2>Detected disks and move queue</h2>
+          </div>
+          <details class="pro-header-details">
+            <summary>Manual state</summary>
+            <div class="hanoi-state-editor pro-manual-state-editor">
+              <div class="hanoi-peg-input-group">
+                <label class="field-label">Peg 0 bottom→top</label>
+                <input id="hanoiPeg0Input" type="text" placeholder="e.g. 3 2 1 or 5 4 3 2 1" />
+              </div>
+              <div class="hanoi-peg-input-group">
+                <label class="field-label">Peg 1 bottom→top</label>
+                <input id="hanoiPeg1Input" type="text" placeholder="empty" />
+              </div>
+              <div class="hanoi-peg-input-group">
+                <label class="field-label">Peg 2 bottom→top</label>
+                <input id="hanoiPeg2Input" type="text" placeholder="empty" />
+              </div>
+              <div class="button-row">
+                <button class="btn btn-secondary btn-small" id="hanoiDetectBtn" type="button">Detect only</button>
+                <button class="btn btn-secondary btn-small" id="hanoiSolveBtn" type="button">Solve manual</button>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="card-body pro-plan-body">
+          <div id="hanoiStateViz" class="hanoi-state-viz pro-state-viz">
+            <div class="hanoi-empty">No state detected yet.</div>
+          </div>
+
+          <div class="pro-section-label">Execution plan</div>
+          <div id="hanoiMoveList" class="hanoi-move-list hanoi-move-list--mission pro-move-list">
+            <div class="hanoi-empty">No move sequence computed yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card pro-card pro-workspace-card">
+        <div class="card-header pro-card-header">
+          <div>
+            <div class="pro-kicker">Workspace</div>
+            <h2>Arm, pegs, and next target</h2>
+          </div>
+          <div class="pro-mini-legend">
+            <span>reachable</span><span>forbidden</span><span>preview</span>
+          </div>
+        </div>
+        <div class="card-body pro-workspace-body">
+          <canvas id="workspaceCanvas" class="workspace-canvas"></canvas>
+          <div id="previewBanner" class="preview-banner" style="display:none;">
+            <div class="preview-banner-inner">
+              <span class="preview-banner-icon">◎</span>
+              <span id="previewBannerLabel" class="preview-banner-label">Preview</span>
+              <button class="btn btn-primary btn-small" id="previewConfirmBtn" type="button">Confirm &amp; Execute</button>
+              <button class="btn btn-secondary btn-small" id="previewCancelBtn" type="button">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card pro-card pro-status-card">
+        <div class="card-header pro-card-header">
+          <div>
+            <div class="pro-kicker">Robot status</div>
+            <h2>Connection and feedback</h2>
+          </div>
+          <button class="btn btn-secondary btn-small" id="clearLogBtn" type="button">Clear log</button>
+        </div>
+        <div class="card-body pro-status-body">
+          <div class="pro-status-grid">
+            <div><span>Connection</span><strong id="connectionStatus">Waiting for first request</strong></div>
+            <div><span>Workspace</span><strong id="workspaceStatus">OK</strong></div>
+            <div><span>Radius</span><strong id="radiusStatus">--</strong></div>
+            <div><span>Shoulder</span><strong id="shoulderStatus">0.0°</strong></div>
+            <div><span>Elbow</span><strong id="elbowStatus">0.0°</strong></div>
+            <div><span>XY speed</span><strong><span id="xySpeedStatus">15</span> mm/s</strong></div>
+            <div><span>Z speed</span><strong><span id="zSpeedStatus">15</span> mm/s</strong></div>
+            <div><span>E speed</span><strong><span id="wristSpeedStatus">15</span> °/s</strong></div>
+            <div><span>Last command</span><strong id="lastCommand">None yet</strong></div>
+            <div class="wide"><span>Last response</span><strong id="lastResponse">Waiting for response...</strong></div>
+          </div>
+          <div id="logBox" class="log-box pro-log-box">Ready.</div>
+          <div class="console-input-row pro-console-row">
+            <input id="customMsg" type="text" placeholder="Manual G-code, e.g. M114" />
+            <button class="btn btn-primary" id="sendCustomBtn" type="button">Send</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="pro-drawer-row">
+      <details class="advanced-drawer pro-advanced-drawer">
+        <summary>Manual arm controls</summary>
+        <section class="card control-card span-2">
+          <div class="card-header"><div><div class="eyebrow">Motion</div><h2>Manual control</h2></div></div>
+          <div class="card-body control-body">
+            <div class="control-row">
+              <div class="control-group xy-group">
+                <div class="mini-title">XY jog</div>
+                <div class="motion-pad">
+                  <div></div><button class="btn btn-primary" data-action="jog-y-positive" data-command="jog-y-positive" type="button">Y+</button><div></div>
+                  <button class="btn btn-secondary" data-action="jog-x-negative" data-command="jog-x-negative" type="button">X−</button>
+                  <button class="btn btn-secondary btn-small" data-action="home" data-command="home" type="button">Home</button>
+                  <button class="btn btn-secondary" data-action="jog-x-positive" data-command="jog-x-positive" type="button">X+</button>
+                  <div></div><button class="btn btn-primary" data-action="jog-y-negative" data-command="jog-y-negative" type="button">Y−</button><div></div>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="mini-title">Z · E · Servo</div>
+                <div class="axis-btn-grid">
+                  <span class="axis-btn-label">Z</span>
+                  <button class="btn btn-secondary" data-action="move-up" data-command="move-up" type="button">Z+</button>
+                  <button class="btn btn-secondary" data-action="move-down" data-command="move-down" type="button">Z−</button>
+                  <span class="axis-btn-label">E</span>
+                  <button class="btn btn-secondary" data-action="wrist-right" data-command="wrist-right" type="button">E+</button>
+                  <button class="btn btn-secondary" data-action="wrist-left" data-command="wrist-left" type="button">E−</button>
+                  <span class="axis-btn-label">S</span>
+                  <button class="btn btn-secondary" data-action="servo-jog-plus" type="button">S+</button>
+                  <button class="btn btn-secondary" data-action="servo-jog-minus" type="button">S−</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="motion-settings-grid">
+              <div class="field-block"><label class="field-label" for="xyStep">XY step mm</label><input id="xyStep" type="number" min="0.1" step="0.1" value="5" /></div>
+              <div class="field-block"><label class="field-label" for="zStep">Z step mm</label><input id="zStep" type="number" min="0.1" step="0.1" value="5" /></div>
+              <div class="field-block"><label class="field-label" for="wristStep">E step °</label><input id="wristStep" type="number" min="0.1" step="0.1" value="5" /></div>
+              <div class="field-block"><label class="field-label" for="servoStep">Servo step °</label><input id="servoStep" type="number" min="1" step="1" value="5" /></div>
+            </div>
+
+            <div class="speed-grid">
+              <div class="field-block"><label class="field-label" for="xySpeedSlider">XY speed <span id="xySpeedValue">15</span> mm/s</label><input id="xySpeedSlider" type="range" min="1" max="80" value="15" /></div>
+              <div class="field-block"><label class="field-label" for="zSpeedSlider">Z speed <span id="zSpeedValue">15</span> mm/s</label><input id="zSpeedSlider" type="range" min="1" max="80" value="15" /></div>
+              <div class="field-block"><label class="field-label" for="wristSpeedSlider">E speed <span id="wristSpeedValue">15</span> °/s</label><input id="wristSpeedSlider" type="range" min="1" max="80" value="15" /></div>
+              <div class="field-block"><label class="field-label" for="servoSpeedSlider">Servo speed <span id="servoSpeedValue">15</span> °/s</label><input id="servoSpeedSlider" type="range" min="1" max="80" value="15" /></div>
+            </div>
+
+            <div class="system-buttons">
+              <button class="btn btn-primary" data-action="open-gripper" data-command="open-gripper" type="button">Open gripper</button>
+              <button class="btn btn-secondary" data-action="close-gripper" data-command="close-gripper" type="button">Close gripper</button>
+              <button class="btn btn-secondary" data-action="detach-servo" data-command="detach-servo" type="button">Detach servo</button>
+              <button class="btn btn-secondary" data-action="get-position" data-command="get-position" type="button">Get position</button>
+              <button class="btn btn-secondary" data-action="check-endstops" data-command="check-endstops" type="button">Check endstops</button>
+              <button class="btn btn-secondary" data-action="enable-motors" data-command="enable-motors" type="button">Enable motors</button>
+              <button class="btn btn-secondary" data-action="disable-motors" data-command="disable-motors" type="button">Disable motors</button>
+            </div>
+
+            <div class="firmware-shortcuts-box">
+              <div class="mini-title">Firmware shortcuts</div>
+              <div class="firmware-shortcuts-grid">
+                <button class="btn btn-primary" data-action="firmware-start" type="button">START</button>
+                <button class="btn btn-secondary" data-action="firmware-up" type="button">UP</button>
+                <button class="btn btn-secondary" data-action="firmware-peg0" type="button">PEG0</button>
+                <button class="btn btn-secondary" data-action="firmware-peg1" type="button">PEG1</button>
+                <button class="btn btn-secondary" data-action="firmware-peg2" type="button">PEG2</button>
+                <button class="btn btn-secondary" data-action="firmware-layer1" type="button">LAYER1</button>
+                <button class="btn btn-secondary" data-action="firmware-layer2" type="button">LAYER2</button>
+                <button class="btn btn-secondary" data-action="firmware-layer3" type="button">LAYER3</button>
+                <button class="btn btn-secondary" data-action="firmware-layer4" type="button">LAYER4</button>
+                <button class="btn btn-secondary" data-action="firmware-layer5" type="button">LAYER5</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </details>
+
+      <details class="advanced-drawer pro-advanced-drawer">
+        <summary>Precise moves and IK test</summary>
+        <section class="card precise-card span-2">
+          <div class="card-header"><div><div class="eyebrow">Precise control</div><h2>Absolute position</h2></div></div>
+          <div class="card-body">
+            <div class="precise-grid">
+              <div class="field-block"><label class="field-label" for="absX">X mm</label><input id="absX" type="number" step="0.1" placeholder="—" /></div>
+              <div class="field-block"><label class="field-label" for="absY">Y mm</label><input id="absY" type="number" step="0.1" placeholder="—" /></div>
+              <div class="field-block"><label class="field-label" for="absZ">Z mm</label><input id="absZ" type="number" step="0.1" placeholder="—" /></div>
+              <div class="field-block"><label class="field-label" for="absE">E °</label><input id="absE" type="number" step="0.1" placeholder="—" /></div>
+              <div class="field-block"><label class="field-label" for="absServo">Servo °</label><input id="absServo" type="number" min="0" max="180" step="1" placeholder="—" /></div>
+            </div>
+            <div class="button-row">
+              <button class="btn btn-primary" id="goToPositionBtn" type="button">Preview move</button>
+              <button class="btn btn-secondary" id="setPositionBtn" type="button">Set position G92</button>
+              <button class="btn btn-secondary" id="clearAbsoluteBtn" type="button">Clear</button>
+            </div>
+            <pre id="previewAbsoluteCode" class="gcode-preview">No absolute move yet.</pre>
+          </div>
+        </section>
+
+        <section class="card ik-card span-2">
+          <div class="card-header"><div><div class="eyebrow">IK</div><h2>Single disk transfer test</h2></div></div>
+          <div class="card-body">
+            <div class="ik-option-grid">
+              <fieldset><legend>Disk</legend><label><input type="radio" name="ikDisk" value="1" checked />1</label><label><input type="radio" name="ikDisk" value="2" />2</label><label><input type="radio" name="ikDisk" value="3" />3</label><label><input type="radio" name="ikDisk" value="4" />4</label><label><input type="radio" name="ikDisk" value="5" />5</label></fieldset>
+              <fieldset><legend>From</legend><label><input type="radio" name="ikFrom" value="0" checked />Peg 0</label><label><input type="radio" name="ikFrom" value="1" />Peg 1</label><label><input type="radio" name="ikFrom" value="2" />Peg 2</label></fieldset>
+              <fieldset><legend>To</legend><label><input type="radio" name="ikTo" value="0" />Peg 0</label><label><input type="radio" name="ikTo" value="1" />Peg 1</label><label><input type="radio" name="ikTo" value="2" checked />Peg 2</label></fieldset>
+              <fieldset><legend>Level</legend><label><input type="radio" name="ikLevel" value="1" checked />1</label><label><input type="radio" name="ikLevel" value="2" />2</label><label><input type="radio" name="ikLevel" value="3" />3</label><label><input type="radio" name="ikLevel" value="4" />4</label><label><input type="radio" name="ikLevel" value="5" />5</label></fieldset>
+            </div>
+            <div id="ikClearanceNote" class="hanoi-hint"></div>
+            <button class="btn btn-primary" id="ikComputeBtn" type="button">Compute transfer</button>
+            <div id="ikResult" class="ik-result"></div>
+            <div id="ikActions" class="ik-actions" style="display:none;"></div>
+          </div>
+        </section>
+      </details>
+
+      <details class="advanced-drawer pro-advanced-drawer pro-settings-drawer">
+        <summary>Interface settings</summary>
+        <div class="pro-settings-grid">
+          <div class="pro-toggle-row">
+            <span>Tooltips</span>
+            <label class="switch"><input type="checkbox" id="tooltipToggle" checked /><span class="slider"></span></label>
+          </div>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <div id="commandTooltip" class="command-tooltip"></div>
+  <script src="config.js"></script>
+  <script src="hanoi-solver.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
