@@ -24,7 +24,6 @@ Beyond the final demo, the project is meant to be reusable and extensible. The m
 
 Enjoy building!
 
----
 
 # Table of Contents
 
@@ -53,15 +52,9 @@ Enjoy building!
 - [Bill of Materials](#bill-of-materials)
   - [Electrical Components](#electrical-components)
   - [Mechanical Components](#mechanical-components)
-- [Risk Assessment](#risk-assessment)
-  - [Mechanical Risks](#mechanical-risks)
-  - [Electrical Risks](#electrical-risks)
-  - [Software Risks](#software-risks)
-  - [Collision Risks](#collision-risks)
 - [Possible Improvements](#possible-improvements)
 - [Top contributors](#top-contributors)
 
----
 
 # Autonomous Hanoi Solving
 
@@ -69,7 +62,6 @@ This video shows the SCARAnoi robot solving the Tower of Hanoi problem autonomou
 
 [Insert demo video here.]
 
----
 
 # How to Build
 
@@ -114,8 +106,6 @@ Be careful when drilling 3D-printed parts. If a hole becomes too large, the part
 
 A laptop or desktop computer is required to program and control the system. It is used to flash the Arduino firmware, program the ESP32-CAM, run the computer vision code, use the manual control interface, and test the autonomous Hanoi solver.
 
----
-
 
 # Hardware
 
@@ -127,41 +117,38 @@ The structure is divided into four main mechanical assemblies:
 - Gripper
 - Hanoi Platform and Camera Support
 
----
+The full mechanical assembly is available here: [Full SCARAnoi assembly design](path/to/the/full/assembly/file).
+
 
 ## Base
 
-The base is the main structural support of SCARAnoi. It carries the vertical Z-axis mechanism, supports the rotating shoulder platform, and keeps the robot stable while the arm is moving.
+The base is the main structural support of SCARAnoi. It holds the vertical Z-axis mechanism, supports the rotating shoulder platform, and keeps the robot stable while the arm is moving.
 
-The final base was redesigned as a laser-cut MDF structure with an attached electrical box. The goal of this electrical box is to keep the electronics accessible during debugging and integration. In the earlier setup, accessing the electronics was inconvenient because the arm structure had to be lifted or moved. With the attached electrical compartment, the Arduino Mega, RAMPS board, buck converters, wiring, and power connections can be reached more easily without disassembling the robot. The base therefore has two main roles. The main structure supports the mechanical load of the arm, while the attached electrical box keeps the control electronics separated from the moving parts. Ventilation holes were also added to improve airflow around the electronics. 
+The final version was redesigned as a laser-cut MDF structure with an attached electrical box. This box keeps the electronics accessible during debugging and integration, without needing to open the whole mechanical base every time.
 
-On top of the moving Z-axis platform, the rotating shoulder platform provides the first rotational joint of the SCARA arm. This rotation is driven through a GT2 belt transmission using a 20-tooth pulley and a 160-tooth pulley. This increases the torque available at the shoulder, which is important because this joint supports the rest of the arm.
+The rotating shoulder platform is mounted on top of the moving Z-axis platform and forms the first rotational joint of the SCARA arm. It is driven by a GT2 belt transmission between a 20-tooth pulley and a 160-tooth pulley. This reduction increases the available torque at the shoulder, which is important because this joint carries the rest of the arm.
 
 ### Files to Laser Cut
 
-[Insert base DXF files.]
-
-- Main base side plates
-- Main base top and bottom plates
-- electrical box side plates
-- Electrical box cover
-- Electrical box bottom plate
-- Electrical box cover holders
-- Upper lift mounting plate
+- [Main base side plates](path/to/the/file)
+- [Main base top and bottom plates](path/to/the/file)
+- [electrical box side plates](path/to/the/file)
+- [Electrical box cover](path/to/the/file)
+- [Electrical box bottom plate](path/to/the/file)
+- [Electrical box cover holders](path/to/the/file)
+- [Upper lift mounting plate](path/to/the/file)
 
 ### Files to 3D Print
 
-[Insert base STL files.]
-
-- Shoulder platform
-- Shoulder 160 teeths pulley
-- Shoulder platform cover
-- Rod clamp supports
-- Limit switch holders
-- Upper lift assembly side panel
-- Upper lift assembly cover plate
-- Mounting blocks
-- Limit switch actuators
+- [Shoulder platform](path/to/the/file)
+- [Shoulder 160 teeths pulley](path/to/the/file)
+- [Shoulder platform cover](path/to/the/file)
+- [Rod clamp supports](path/to/the/file)
+- [Limit switch holders](path/to/the/file)
+- [Upper lift assembly side panel](path/to/the/file)
+- [Upper lift assembly cover plate](path/to/the/file)
+- [Mounting blocks](path/to/the/file)
+- [Limit switch actuators](path/to/the/file)
 
 ### Bill of Materials
 
@@ -185,31 +172,38 @@ On top of the moving Z-axis platform, the rotating shoulder platform provides th
 
 ### Assembly Procedure
 
-Laser cut the MDF parts for the main base and the attached electrical box. Start by assembling the main SCARA base with the finger joints and check that the structure is square and rigid. Unlike the electrical box, the main SCARA base should not be permanently sealed. Some parts inside the base may still need to be accessed later, for example to tighten the shoulder screw or to rearrange wires going through the base toward the Hanoi platform. To make this possible, we used small 3D-printed mounting blocks placed inside the base corners. Each block has two M4 heat-set inserts, one for each adjacent side panel. The block is glued to the inner face of a horizontal panel, and the side panels are then screwed into the inserts using M4x12 screws. This keeps the structure rigid during operation while still allowing the side panels to be removed when needed. The electrical box is assembled separately. Its side and bottom panels can be glued normally, since the box remains accessible from its own opening. Once assembled, the electrical box is attached to the main base using M4 screws (four M4x20 and two M4X30) . Keeping the main base and the electrical box detachable made the development process easier. The mechanical structure could be assembled and adjusted independently, while the electronics could be placed, wired, tested, or debugged without waiting for the full mechanical assembly to be finished.
+Laser cut the MDF parts for the main base and the attached electrical box. Start by assembling the main SCARA base with the finger joints. This base should not be permanently sealed, since some internal parts may still need to be accessed later, for example to tighten the shoulder screw or rearrange wires going through it. To make the side panels removable, we used small 3D-printed mounting blocks inside the base corners. Each block contains two M4S heat-set inserts, one for each adjacent side panel. The blocks are glued to the inner face of a horizontal panel, and the side panels are screwed into them using M4×12 screws. This keeps the base rigid while still allowing it to be opened if needed.
 
-To make the next assembly steps easier, do not install the top face of the main SCARA base yet. For now, only assemble the side panels and keep the top open. This gives easier access to the inside of the base when mounting the Z-axis NEMA motor, the shoulder platform, the belt transmission, and the screw/nut assembly. If the top face is installed too early, it will likely need to be removed again during the next steps.
+The electrical box is assembled separately. Its side and bottom panels can be glued normally, since it remains accessible from its own opening. Once assembled, attach it to the main base using M4 screws. 
 
-Attach the shoulder platform to the 160-tooth pulley using four M2.5 × 12 mm screws. The shoulder platform and pulley were kept as separate printed parts to make iteration easier. During testing, if one section had a printing defect or needed a design change, we did not want to reprint the whole combined assembly. With this design, only the affected part has to be reprinted.To assemble them, insert four M2.5 heat-set inserts into the pulley, then screw the pulley to the shoulder platform.
+Do not install the top face of the main SCARA base yet. Keeping the top open makes it easier to mount the Z-axis motor, the shoulder platform, the belt transmission, and the screw/nut assembly. If the top face is installed too early, it will probably need to be removed again.
 
-Insert two M3 heat-set inserts for each rod clamp into the corresponding holes in the shoulder platform, for a total of 6 inserts. Then place the three rod clamps in position and attach them using M3×12 screws.
+Attach the shoulder platform to the 160-tooth pulley using four M2.5×12 screws. The two parts were printed separately to make iteration easier: if one part has a defect or needs a design change, only that part has to be reprinted. Insert four M2.5 heat-set inserts into the pulley, then screw the pulley to the shoulder platform.
 
-The heat-set insert holes for the rod clamps pass through the shoulder platform. Flip the platform and reuse two of these holes to mount the limit switch actuators. Since one clamp is located on the belt side, avoid using that position and choose two accessible holes instead. Insert the heat-set inserts from the opposite side, then attach the two limit switch actuators two M3x12 screws, one for each. 
+Insert two M3 heat-set inserts for each rod clamp into the shoulder platform, for a total of six inserts. Place the three rod clamps and attach them using M3×12 screws.
 
-Now assemble the whole shoulder rotation stack on top of the main SCARA base. Place one axial ball bearing on the top face of the base, centered around the 10 mm hole. Before continuing, place the belt around the 160-tooth pulley so it is already in position for the belt transmission later. The 160-tooth pulley has a tight-fit circular recess on its bottom side for the bearing. Place the pulley on top of the first axial bearing, making sure that the bearing is properly seated inside the hole. On the top side of the platform, there is a small circular recess matching the size of the second axial bearing. Place the second axial bearing inside it. Then place the shoulder platform cover on top of the second bearing. Align the 10 mm holes of the shoulder, the pulley, the bearings, and the top face of the base. Insert the M10 screw through these aligned holes, from the top of the shoulder platform down through the pulley and the base top face, until it comes out on the other side. Finally, add the washer and the M10 nut from the bottom side, then tighten them carefully. The assembly should be tight enough to remove play, but not so tight that the shoulder rotation becomes difficult or creates too much friction. 
+The insert holes for the rod clamps pass through the shoulder platform. Flip the platform and reuse two accessible holes to mount the limit switch actuators. Avoid the clamp located on the belt side. Insert the heat-set inserts from the opposite side, then attach the two actuators using one M3×12 screw each.
 
-With the shoulder rotation stack assembled, the belt transmission can now be adjusted. Place the NEMA motor for the shoulder rotation in the slots of the top face of the main SCARA base, then attach the 20-tooth pulley to the motor shaft. Pass the belt around the 20-tooth pulley and the shoulder 160-tooth pulley. Slide the motor inside the slots to adjust the belt tension. The belt should be tight enough to avoid skipping, but not so tight that it makes the shoulder rotation harder to move. When the belt tension is correct, fix the NEMA motor in place using four M3 × 12 mm screws. 
+Next, assemble the shoulder rotation stack on the top face of the main base. Place one axial ball bearing on the top face, centered around the 10 mm hole. Before placing the shoulder platform, put the belt around the 160-tooth pulley so it is already in position for the belt transmission. Seat it then on the first bearing, making sure the bearing fits correctly into the circular recess under the pulley at the bottom of it.
 
-Before fully closing the main SCARA base by installing the top face, it is preferable to install and wire the three limit switches if possible (See the [Electronics](#electronics) section for the wiring details). This step can still be done later, but the top face of the box will have to be removed again. Since the box joints can be quite tight, removing it after assembly is a little tedious. It is easier to do this now, while the inside of the base is still accessible. Two of the limit switches are mounted directly on the main SCARA base. We used two M2×12 mm screws and nuts to fix them because it was the maximum length we could find for that screw size. Because the MDF is 10 mm thick and the limit switch is around 6 mm thick, the screws do not have much extra length. We therefore drilled the mounting holes in the MDF slightly deeper, just enough for the screws to go through the limit switch and still allow a nut to be placed on the other side. The third one is mounted on the shoulder platform. It is first screwed to a limit switch holder using two M2 screws. The limit switch holder is then screwed to the shoulder platform using two M2.5×8 screws. To do this, insert two M2.5 heat-set inserts into the corresponding holes in the shoulder platform. The limit switch wires can pass through the nearest hole in the main SCARA base. From there, route them and the motor wires through the opening between the main base and the electrical box so they can be connected to the electronics.
+Place the second axial bearing in the circular recess on top of the shoulder platform, then add the shoulder platform cover. Align the 10 mm holes of the shoulder platform, pulley, bearings, and base top face. Insert the M10 screw from the top, through the full stack, until it comes out under the base top face. Add the washer and M10 nut from below, then tighten carefully. The stack should have no excessive play, but the shoulder must still rotate freely without too much friction.
 
-After this, the main SCARA base can be closed by placing the top face of the box. Once the top face is in place, install the three 8 mm smooth rods vertically. Insert each rod into its rod clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during the Z-axis motion and prevent it from tilting. Try to keep the rods as parallel as possible. If they are not aligned correctly, the shoulder platform may create friction or get stuck during vertical movement.
+Once the shoulder stack is assembled, adjust the belt transmission. Place the shoulder NEMA motor in the slots of the base top face and attach the 20-tooth pulley to the motor shaft. Pass the belt around both pulleys, then slide the motor in the slots to set the belt tension. The belt should be tight enough to avoid skipping, but not so tight that it makes rotation difficult. When the tension is correct, fix the motor using four M3×12 screws.
 
-Next, assemble the upper lift assembly. Take the upper lift assembly side panel and insert M3 heat-set inserts into the screw holes at the top and bottom. At the bottom, screw the side panel to the 6 mm MDF upper lift mounting plate. Place the Z-axis NEMA motor in the corresponding slot of the plate, then screw it in place. Attach the shaft coupler to the motor shaft. After this, screw the upper lift assembly cover plate to the top of the side panel. The T8 lead screw will then be connected to the other side of the shaft coupler, and the three 8 mm smooth rods should be inserted into their corresponding holes in the upper lift assembly cover plate.
+Before closing the main base, it is better to install and wire the three limit switches. This can still be done later, but the top face would need to be removed again. Two limit switches are mounted directly on the main base using M2 screws and nuts. If the screws are not long enough, drill the mounting holes slightly deeper.
 
-At this point, the fixed structure of the robot is assembled: the main SCARA base, the shoulder platform, the smooth rods, and the upper lift assembly. The horizontal arm can be mounted later. When mounting the arm, the upper lift assembly cover plate may need to be removed temporarily so the arm can be inserted onto the rods correctly.
+The third limit switch is mounted on the shoulder platform. First screw it to its holder using two M2 screws, then attach the holder to the shoulder platform using two M2.5 screws. For this, insert two M2.5 heat-set inserts into the corresponding holes in the shoulder platform. Route the limit switch wires through the nearest hole in the main base, then pass them together with the motor wires through the opening between the main base and the electrical box.
+
+After this, close the main SCARA base by installing the top face. Then install the three 8 mm smooth rods vertically. Insert each rod into its clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during Z-axis motion and prevent it from tilting, so they should be as parallel as possible. If they are misaligned, the platform may create friction or get stuck.
+
+Next, assemble the upper lift. Insert M3 heat-set inserts into the top and bottom screw holes of the upper lift side panel. Screw the side panel to the 6 mm MDF upper lift mounting plate. Place the Z-axis NEMA motor in the corresponding slot, screw it in place, and attach the shaft coupler to the motor shaft. Then screw the upper lift cover plate to the top of the side panel.
+
+Connect the T8 lead screw to the other side of the shaft coupler, and insert the three 8 mm smooth rods into their corresponding holes in the upper lift cover plate.
+
+At this point, the fixed structure of the robot is assembled: the main SCARA base, the electrical box, the shoulder platform, the smooth rods, and the upper lift assembly. The horizontal arm can be mounted later. During that step, the upper lift cover plate will need to be removed temporarily so the arm can be inserted onto the rods.
 
 [Insert image of full base and electrical box assembly.]
 
----
 
 ## Arm
 
@@ -221,17 +215,13 @@ The arm uses a closed design with top covers to protect the internal components,
 
 ### Files to Laser Cut
 
-[Insert arm DXF files.]
-
-- Top cover for the first arm segment
+- [Top cover for the first arm segment](path/to/the/file)
 - Top cover for the second arm segment
 - Optional flat reinforcement plates
 
 ### Files to 3D Print
 
-[Insert arm STL files.]
-
-- First arm segment body
+- [First arm segment body](path/to/the/file)
 - Second arm segment body
 - Pulley housings
 - Bearing housings
@@ -241,17 +231,11 @@ The arm uses a closed design with top covers to protect the internal components,
 
 ### Other Parts
 
-- NEMA 17 stepper motors
-- GT2 belts
-- GT2 pulleys
-- Axial bearings
-- M5 × 80 mm screw used as through-shaft
-- Vertical spacer rods
-- Heat-set inserts
-- M2.5, M3 and M4 screws
-- [Insert exact belt lengths.]
-- [Insert exact pulley tooth counts used in the final version.]
-- [Insert exact bearing references.]
+| Part | Quantity | Specification / Notes |
+|---|---:|---|
+| NEMA 17 stepper motors | 4 |  |
+| Heat-set inserts | 2 |  |
+| [Insert exact bearing references.] | 4 | 8 mm × 12 mm × 19 mm |
 
 ### Assembly Procedure
 
@@ -273,7 +257,6 @@ Close the arm segments with the laser-cut covers and verify that all internal co
 
 [Insert image of full arm assembly.]
 
----
 
 ## Gripper
 
@@ -287,21 +270,21 @@ No laser-cut parts are required for the gripper.
 
 ### Files to 3D Print
 
-[Insert gripper STL files.]
-
-- Gripper frame : 
-- 2 racks : 
-- Pinion : 
-- 2 jaws : 
-- 2 TPU layers (contact layers with disks) : 
+- [Gripper frame](path/to/the/file)
+- 2 racks: [Rack A](path/to/the/file), [Rack B](path/to/the/file)
+- [Pinion](path/to/the/file)
+- 2 jaws: [Jaw A](path/to/the/file), [Jaw B](path/to/the/file)
+- 2 TPU contact layers (contact layers with disks): [Layer 1](path/to/the/file), [Layer](path/to/the/file)
 
 ### Other Parts
 
-- 1 DMS15 servo motor
-- 2 aluminium guide rods, 8 mm diameter
-- LM8UU linear bearings, 8 mm × 12 mm × 19 mm
-- 4 M4 screws + 4 M4 inserts (to attach jaws to racks)
-- 4 M3 screws + 4 M3 inserts (to attach gripper frame to arm)
+| Part | Quantity | Specification / Notes |
+|---|---:|---|
+| DMS15 servo motor | 1 |  |
+| Aluminium guide rods | 2 | 8 mm diameter |
+| LM8UU linear bearings | As needed | 8 mm × 12 mm × 19 mm |
+| M4 screws and inserts | 4 each | To attach jaws to racks |
+| M3 screws and inserts | 4 each | To attach gripper frame to arm |
 
 ### Assembly Procedure
 
@@ -323,7 +306,6 @@ Test the gripper on all disk sizes before mounting it on the arm. Verify that th
 
 [Insert image of full gripper assembly.]
 
----
 
 ## Hanoi Platform and Camera Support
 
@@ -333,29 +315,24 @@ A camera support structure is integrated into the platform to provide a fixed ov
 
 ### Files to Laser Cut
 
-[Insert platform and camera support DXF files.]
-
-- Main Hanoi platform
-- Camera support beam
-- Vertical camera mounting plate
-- Base connection piece between the platform and robot base
-- Tab-and-slot support parts
+- [Main Hanoi platform](path/to/the/file)
+- [Camera support box](path/to/the/file)
+- 2 box connectors: [Connector Scara-Hanoi](path/to/the/file), [Connector Hanoi-Camera](path/to/the/file)
 
 ### Files to 3D Print
 
-[Insert disk STL files.]
-
-- 5 Hanoi disks
-- Optional camera bracket
-- Optional disk markers
+- 5 Hanoi disks: [Disk 1](path/to/the/file), [Disk 2](path/to/the/file), [Disk 3](path/to/the/file), [Disk 4](path/to/the/file), [Disk 5](path/to/the/file)
+- [Camera case](path/to/the/file)
+- [Peg head](path/to/the/file)
 
 ### Other Parts
 
-- 3 aluminium rods, 10 mm diameter, used as pegs
-- ESP32-CAM module
-- Screws or mounting hardware
-- [Insert exact peg height.]
-- [Insert exact camera mounting screws.]
+| Part | Quantity | Specification / Notes |
+|---|---:|---|
+| Rods | 3 | 10 mm diameter, 8 mm inner diameter, used as pegs  |
+| ESP32-CAM module | 1 |  |
+| M3 Screws| As needed |  |
+| MDF sheet| As needeed | We used 2, 10 mm for the hanoi box and connectors and 5mm for the camera box, but dimensions don't really matter|
 
 ### Disk Dimensions
 
@@ -371,15 +348,15 @@ The system uses 5 disks. Each disk has a height of 15 mm and a central hole of 1
 
 ### Assembly Procedure
 
-Laser cut the main platform and the camera support structure from MDF. Assemble the platform using the tab-and-slot joints.
+Laser cut the main platform and the camera support structure from MDF. Assemble the platform using the joints.
 
-Install the three aluminium pegs into the platform. The pegs should be spaced 90 mm apart from center to center. Make sure that they are vertical and firmly fixed.
+Install the three pegs into the platform. The pegs should be spaced 90 mm apart from center to center. Make sure that they are vertical and firmly fixed.
 
 3D print the 5 disks. Each disk should slide freely on the pegs without excessive friction. The 14 mm central hole provides clearance around the 10 mm pegs.
 
-Mount the camera support beam to the platform. This support keeps the ESP32-CAM at a fixed position relative to the Hanoi pegs, which improves repeatability during computer vision detection.
+Mount the camera case to its support box, which is itself mounted at the end of the Hanoi-camera connector. This connector keeps the ESP32-CAM at a fixed position relative to the Hanoi pegs, which improves repeatability during computer vision detection.
 
-Mount the ESP32-CAM on the vertical plate and orient it downward toward the platform. Verify that all three pegs and the full disk area are visible in the camera frame.
+There are no predefined screw holes in the camera support box so that the camera angle can be adjusted manually during assembly and once the desired angle is found, the screw holes can be drilled directly in the box. Verify that all three pegs and the full disk area are visible in the camera frame.
 
 [Insert image of full Hanoi platform and camera support assembly.]
 
@@ -432,7 +409,6 @@ Before powering the full system, verify all voltage rails with a multimeter:
 
 [Insert photo of final electronics box or wiring.]
 
----
 
 # Software
 
@@ -444,7 +420,6 @@ The software stack is divided into three main layers:
 
 [Insert repository file tree.]
 
----
 
 ## Laptop or Server Software
 
@@ -468,7 +443,6 @@ The output is then converted into movement commands for the robot.
 
 [Insert instructions to run the software.]
 
----
 
 ## ESP32 Firmware
 
@@ -491,7 +465,6 @@ If the ESP32-CAM is used directly for vision, it also provides the camera stream
 
 [Insert Wi-Fi setup instructions.]
 
----
 
 ## Arduino Firmware
 
@@ -515,7 +488,6 @@ The planned approach uses a customized version of MARLIN firmware configured for
 
 [Insert flashing instructions.]
 
----
 
 # Motion
 
@@ -557,7 +529,6 @@ A homing routine should be executed at startup before autonomous motion.
 
 [Insert axis limits.]
 
----
 
 # Computer Vision
 
@@ -585,7 +556,6 @@ The vision system should first be tested independently from the robot motion. On
 
 [Insert final computer vision script.]
 
----
 
 # Hanoi Algorithm
 
@@ -608,7 +578,6 @@ The solver receives the initial configuration, either manually entered by the us
 
 [Insert example input and output.]
 
----
 
 # Autonomous Operation
 
@@ -628,7 +597,6 @@ The intended pipeline is:
 
 [Insert final command to run autonomous mode.]
 
----
 
 # Manual Control
 
@@ -650,7 +618,6 @@ The user should be able to move the arm manually through a software interface or
 
 [Insert control commands.]
 
----
 
 # Bill of Materials
 
@@ -658,81 +625,16 @@ The project uses both electrical and mechanical components.
 
 ## Electrical Components
 
-[Insert final BOM table.]
-
-Main electrical components include:
-
-- 12 V, 6 A DC power supply
-- Arduino Mega 2560
-- RAMPS 1.4
-- A4988 stepper drivers
-- NEMA 17 stepper motors
-- DMS15 servo motor
-- ESP32-CAM
-- FTDI adapter
-- Logic-level converter
-- Limit switches
-- Buck converters
-- USB cables and wiring
+[Insert final electrical BOM table.]
 
 ## Mechanical Components
 
-[Insert final BOM table.]
+[Insert final mechanical BOM table.]
 
-Main mechanical components include:
-
-- GT2 belts
-- GT2 pulleys
-- T8 lead screw
-- Trapezoidal nut
-- Smooth rods
-- Linear bearings
-- Axial ball bearings
-- Deep groove ball bearings
-- Couplers
-- Screws and nuts
-- MDF sheets
-- PETG or PLA + TPU filament
-- Aluminium rods for pegs
-
----
-
-# Risk Assessment
-
-Several risks should be considered during assembly and testing.
-
-## Mechanical Risks
-
-The motors may lack torque if the arm is fully extended or if acceleration is too high. To reduce this risk, conservative motion speeds and reduction ratios should be used.
-
-The arm may lose position if stepper motors miss steps. Homing routines and limit switches help reset the robot to a known reference position.
-
-The gripper may fail to hold disks reliably if the jaws are misaligned or if the gripping force is insufficient. Each disk size should be tested before full integration.
-
-## Electrical Risks
-
-The power supply must be able to handle simultaneous motor, servo, Arduino, and camera operation. Voltage rails should be tested before connecting all components.
-
-Wiring may fail because of repeated motion around the joints. Cables should be routed with slack and protected using heat-shrink tubing.
-
-## Software Risks
-
-The inverse kinematics may become unstable near singular positions. The working area should be limited in software.
-
-The camera may fail to detect disks under poor lighting or low contrast. Lighting and disk colors should be tested early.
-
-The Hanoi solver must validate detected configurations before executing movements, especially if non-standard or intermediate states are supported.
-
-## Collision Risks
-
-The gripper may collide with the pegs or platform if calibration is inaccurate. All new movement sequences should first be tested slowly and with emergency stop access.
-
----
 # Possible Improvements
 
 [ A list of possible improvements here ]
 
----
 # Top contributors:
 
 This project was made by:
