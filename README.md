@@ -410,213 +410,303 @@ Before powering the full system, verify all voltage rails with a multimeter:
 [Insert photo of final electronics box or wiring.]
 
 
+Yes — the current text is very placeholder-y, especially the parts with `[Insert ...]`. I rewrote it using the actual files from the zip and corrected the Arduino part: this project is using `custom-firmware.ino`, not Marlin. The placeholder structure comes from your uploaded README draft. 
+
+You can paste this directly:
+
+
 # Software
 
-The software stack is divided into three main layers:
+The software is split into three main parts. The browser interface is used to control the robot, preview the camera feed, run the Hanoi solver, and send commands. The ESP32-CAM acts as the Wi-Fi and camera bridge. The Arduino Mega, connected to the RAMPS 1.4 board, runs the low-level firmware that moves the motors.
 
-1. High-level computer software running on a laptop or server
-2. ESP32 firmware acting as communication hub and camera interface
-3. Arduino Mega firmware handling low-level motion control
+```text
+software/
+├── index.html                  # Main browser interface
+├── style.css                   # Interface styling
+├── app.js                      # Manual control, workspace graph, command sending
+├── config.js                   # ESP32 IP, robot dimensions, firmware commands
+├── hanoi-solver.js             # Hanoi state validation, solver, and move queue
+├── cv_server.py                # Flask/OpenCV bridge for the camera feed and detection
+├── detectDisque.py             # Disk detection using OpenCV and HSV color masks
+├── requirements.txt            # Python dependencies
+├── esp32.ino                   # ESP32-CAM HTTP bridge and camera stream
+├── custom-firmware.ino         # Arduino Mega + RAMPS custom motion firmware
+├── axis-center.ino             # Helper code for measuring axis centers
+├── command-descriptions.json   # Command descriptions shown in the UI
+```
 
-[Insert repository file tree.]
+## Running the Interface
 
+The browser interface is served by the local Python server. This server also handles the OpenCV processing, so the computer vision does not need to run directly inside the browser.
 
-## Laptop or Server Software
+To install the Python dependencies:
 
-The laptop or server handles computationally intensive tasks such as computer vision, disk detection, and Hanoi solving.
+```bash
+cd software
+pip install -r requirements.txt
+```
 
-The planned software uses OpenCV and possibly object detection models to analyze the camera feed and determine the current state of the Tower of Hanoi puzzle. Once the disk configuration is detected, the software computes the sequence of moves required to solve the puzzle.
+To start the interface and connect it to the ESP32:
 
-The output is then converted into movement commands for the robot.
+```bash
+python cv_server.py --esp-ip <ESP32_IP>
+```
 
-### Main responsibilities
+Then open:
 
-- Receive or fetch camera frames
-- Detect disks and pegs
-- Determine the current Hanoi configuration
-- Sort disks by size
-- Run the Tower of Hanoi solving algorithm
-- Convert logical moves into robot movements
-- Send commands to the ESP32 or Arduino
+```text
+http://localhost:5000
+```
 
-[Insert name of Python script.]
+The ESP32 IP can also be changed directly from the interface.
 
-[Insert instructions to run the software.]
+## Browser Interface
 
+The browser interface is the main control panel of the robot. It provides manual arm control, absolute position control, camera preview, Hanoi state detection, solver controls, and command logs.
+
+Commands are sent from the browser to the ESP32 using HTTP. The ESP32 then forwards them to the Arduino Mega through serial communication. This keeps the browser independent from the motor control details: the interface decides what command should be sent, while the firmware handles how the robot actually moves.
+
+The interface also includes a top-down workspace graph. It shows the reachable area of the SCARA arm, the forbidden inner zone, the peg positions, and the current estimated position of the end effector. When the firmware returns a position with `M114`, the interface uses it to resync the graph with the real robot state.
 
 ## ESP32 Firmware
 
-The ESP32 acts as a communication bridge between the high-level software and the Arduino Mega.
+The ESP32-CAM is used as the bridge between the browser interface and the Arduino Mega. It receives HTTP requests from the interface, forwards the commands to the Arduino over UART, and sends the Arduino response back to the browser. It also provides the camera stream used by the OpenCV server.
 
-In autonomous mode, it can receive generated commands from the laptop or server and forward them to the Arduino through serial communication. It can also support manual control by receiving user inputs and translating them into movement commands.
+The firmware is located in:
 
-If the ESP32-CAM is used directly for vision, it also provides the camera stream used by the computer vision pipeline.
+```text
+software/esp32.ino
+```
 
-### Main responsibilities
+The ESP32 exposes these main endpoints:
 
-- Provide camera stream
-- Connect to Wi-Fi
-- Receive commands from the laptop or server
-- Forward commands to the Arduino Mega
-- Optionally host a manual control interface
-- Buffer commands to avoid communication stalls
+```text
+/send?msg=<command>   Send one or more commands to the Arduino
+/capture              Capture one still image from the ESP32-CAM
+:81/stream            MJPEG camera stream
+```
 
-[Insert ESP32 firmware filename.]
+For example, this sends an `M114` position request to the Arduino:
 
-[Insert Wi-Fi setup instructions.]
+```text
+http://<ESP32_IP>/send?msg=M114
+```
 
+In the current setup, the ESP32 connects to an existing Wi-Fi network and communicates with the Arduino Mega at baud rate `250000`.
 
 ## Arduino Firmware
 
-The Arduino Mega is the low-level motion controller. It receives commands from the ESP32 and converts them into motor driver signals through the RAMPS 1.4 board.
+The Arduino Mega is the low-level motion controller. It is connected to the RAMPS 1.4 board with A4988 stepper drivers. The firmware is custom-made for SCARAnoi and is located in:
 
-The firmware controls the stepper motors, servo motor, homing routines, and safety limits.
+```text
+software/custom-firmware.ino
+```
 
-The planned approach uses a customized version of MARLIN firmware configured for SCARA kinematics.
+This firmware implements a smaller Marlin-like command set that is easier to adapt to our SCARA arm and to the specific movements needed for the Hanoi demo.
 
-### Main responsibilities
+The firmware controls four axes:
 
-- Receive commands through serial communication
-- Execute SCARA motion
-- Drive the stepper motors through RAMPS and A4988 drivers
-- Control the gripper servo
-- Read limit switches
-- Execute homing routines
-- Enforce motion limits
+- `X`: shoulder joint
+- `Y`: elbow joint
+- `Z`: vertical lift
+- `E`: wrist / gripper rotation
 
-[Insert Arduino firmware filename.]
+The normal movement commands use Cartesian `X/Y` coordinates. Internally, the firmware uses inverse kinematics to convert these coordinates into the shoulder and elbow angles needed by the motors. The `Z` axis is controlled in millimeters, and the `E` axis is treated as a logical gripper angle.
 
-[Insert flashing instructions.]
+The firmware also includes custom text commands for the Hanoi demo:
 
+```text
+START     Move to the configured start pose
+PEG0      Move above peg 0
+PEG1      Move above peg 1
+PEG2      Move above peg 2
+UP        Move to the safe height above the current peg
+LAYER1    Move down to layer 1
+LAYER2    Move down to layer 2
+LAYER3    Move down to layer 3
+LAYER4    Move down to layer 4
+LAYER5    Move down to layer 5
+OPEN      Open the gripper
+CLOSE     Close the gripper
+```
+
+These macros keep the browser logic simpler. The browser only has to decide the logical Hanoi move, while the exact peg coordinates, Z heights, and gripper angles are stored in the firmware.
+
+Common firmware commands include:
+
+```text
+G28              Home the robot
+G90              Use absolute positioning
+G91              Use relative positioning
+G1 X.. Y.. Z..   Move to a position
+G92 X.. Y.. Z..  Set the current logical position
+M114             Report current position
+M119             Report endstop states
+M17              Enable motors
+M18 / M84        Disable motors
+M112             Emergency stop
+M999             Clear emergency stop
+M280 P0 S..      Move the gripper servo
+M282 P0          Detach the servo
+M503             Print firmware settings
+```
 
 # Motion
 
-The motion subsystem controls the physical movement of the robot.
-
-The SCARAnoi robot uses several degrees of freedom:
-
-- Base or shoulder rotation
-- Elbow rotation
-- Z-axis vertical translation
-- Gripper rotation
-- Gripper opening and closing
+The motion system is based on a SCARA arm with a vertical lift and a servo gripper. A complete disk transfer consists of moving above a peg, going down to the correct disk layer, closing the gripper, lifting the disk, moving to another peg, and releasing it.
 
 ## Shoulder and Elbow Motion
 
-The two main arm joints control the horizontal position of the gripper above the Hanoi platform. These joints allow the robot to reach the three pegs and move disks between them.
+The shoulder and elbow joints control the horizontal position of the gripper above the Hanoi platform. Instead of manually controlling the joint angles, the user gives target `X/Y` coordinates through the interface. The firmware then computes the corresponding SCARA angles using inverse kinematics.
 
-The motors are placed close to the base when possible to reduce moving mass and inertia.
+This makes manual control easier because the user can think in terms of positions above the board, rather than individual motor angles.
 
 ## Z-Axis Motion
 
-The vertical axis allows the gripper to move up and down. This is used to approach the disk, grab it, lift it above the peg, move to another peg, and lower it into place.
+The Z-axis moves the gripper up and down. It is used to approach a disk, grab it, lift it above the pegs, and lower it again at the target position.
 
-The Z-axis is guided by four smooth rods and driven by a T8 lead screw.
+For the Hanoi demo, the firmware stores predefined Z heights:
+
+```text
+Z_UP      Safe height above the pegs
+LAYER1    First disk layer
+LAYER2    Second disk layer
+LAYER3    Third disk layer
+LAYER4    Fourth disk layer
+LAYER5    Fifth disk layer
+```
+
+This avoids recalculating the vertical position in the browser for every move. The interface can simply send commands such as `UP` or `LAYER3`.
 
 ## Gripper Motion
 
-The gripper uses a servo-driven rack-and-pinion mechanism. When the pinion rotates, the two racks move in opposite directions, opening or closing the jaws symmetrically.
+The gripper is controlled by a servo motor. During the Hanoi sequence, the browser sends `OPEN` or `CLOSE`, and the firmware moves the servo to the configured angle.
 
-The gripper is designed to hold disks with diameters between 20 mm and 80 mm.
+For manual testing, the servo can also be controlled directly using `M280 P0 S<angle>`. The command `M282 P0` detaches the servo when needed.
 
 ## Homing and Limits
 
-Limit switches are used to define reference positions and prevent the robot from exceeding its mechanical range.
+Before running a full Hanoi sequence, the robot should be homed with:
 
-A homing routine should be executed at startup before autonomous motion.
+```text
+G28
+```
 
-[Insert homing procedure.]
+This gives the robot a known reference position. The firmware also uses endstops and software limits to avoid unsafe movement.
 
-[Insert axis limits.]
+Useful debug commands are:
 
+```text
+M119    Check endstop states
+M114    Check current position
+M503    Print firmware settings
+```
+
+After homing, the interface requests the current position again so the workspace graph matches the firmware state.
 
 # Computer Vision
 
-The computer vision subsystem detects the Tower of Hanoi configuration from camera images.
+The computer vision system detects the colored Hanoi disks from the ESP32-CAM image. The ESP32-CAM provides the raw stream, and the Python OpenCV server processes it locally.
 
-The ESP32-CAM is mounted above the Hanoi platform, giving a fixed overhead view of the disks and pegs. This fixed geometry helps make detection more repeatable.
+The main files are:
 
-The vision pipeline should identify the disks, estimate their sizes, determine which peg each disk is on, and reconstruct the full puzzle state.
+```text
+software/cv_server.py
+software/detectDisque.py
+```
 
-### Planned detection steps
+The detection currently uses HSV color segmentation. Each disk has a known color, and the script detects the largest valid contour for each color. It then assigns each detected disk to a peg based on its position in the image and sorts the disks vertically to reconstruct the stack order.
 
-1. Capture image from the ESP32-CAM
-2. Detect circular disk shapes
-3. Estimate disk radii or diameters
-4. Separate disks into stacks
-5. Sort disks by size
-6. Determine the current peg configuration
-7. Send the configuration to the Hanoi solver
+The current disk convention is:
 
-The vision system should first be tested independently from the robot motion. Once reliable, it can be integrated with the full autonomous workflow.
+```text
+1 = green disk, smallest
+2 = yellow disk
+3 = red disk
+4 = pink disk
+5 = blue disk, largest
+```
 
-[Insert example camera image.]
+The OpenCV server provides:
 
-[Insert detection output image.]
+```text
+/cv-stream      Annotated live stream
+/cv-snapshot    Latest annotated frame
+/detect         Latest detected Hanoi state as JSON
+/set-esp        Update the ESP32 IP used by the CV server
+```
 
-[Insert final computer vision script.]
-
+The vision system is especially sensitive to camera angle, lighting, and background movement. For this reason, the detection should first be tested independently before running a full autonomous sequence.
 
 # Hanoi Algorithm
 
-The Hanoi solver computes the sequence of legal moves required to solve the puzzle.
+The Hanoi solver is implemented in:
 
-For a classic Tower of Hanoi problem, the algorithm recursively moves smaller stacks between pegs while respecting the rule that a larger disk can never be placed on top of a smaller disk.
+```text
+software/hanoi-solver.js
+```
 
-The solver receives the initial configuration, either manually entered by the user or detected by the camera, and computes the full list of moves required to reach the final configuration.
+It takes the detected or manually entered Hanoi state and computes the sequence of legal moves needed to solve the puzzle. The solver also supports partial setups, so it does not always require all five disks to be present.
 
-### Classic workflow
+The state is represented as three peg lists. Each disk is represented by its number, where smaller numbers are smaller disks. For example:
 
-1. User starts the system
-2. Camera detects the current disk configuration
-3. Software reconstructs the Hanoi state
-4. Solver computes the move sequence
-5. Each logical move is converted into robot pick-and-place commands
-6. The SCARA arm executes the full solution
+```text
+Peg 0: [5, 4, 3]
+Peg 1: []
+Peg 2: []
+```
 
-[Insert solver filename.]
+Before solving, the state is checked to make sure it is legal. This prevents cases such as duplicate disks or a larger disk being placed on top of a smaller one.
 
-[Insert example input and output.]
+Once the logical sequence is computed, each move is converted into firmware commands. A typical disk transfer follows this structure:
 
+```text
+Move above source peg
+Go down to the source layer
+Close the gripper
+Move up
+Move above target peg
+Open the gripper
+```
+
+The browser can execute the sequence step by step with confirmation, or run it automatically one move after another. After each disk transfer, the system uses computer vision to compare the detected Hanoi state with the expected state. If they do not match, the sequence stops so the user can check the robot, the disks, or the camera detection before continuing.
 
 # Autonomous Operation
 
-The autonomous mode combines perception, planning, and physical execution.
+The autonomous workflow combines camera detection, Hanoi planning, and robot execution.
 
-The intended pipeline is:
+The intended workflow is:
 
-1. Start the system
-2. Home the robot
-3. Capture the Hanoi platform image
-4. Detect disk positions and sizes
-5. Build the current puzzle state
-6. Compute the Hanoi solution
-7. Convert each move into robot coordinates
-8. Execute pick-and-place operations
-9. Verify or continue until solved
+1. Start the ESP32-CAM bridge
+2. Start the Python OpenCV server
+3. Open the browser interface
+4. Home the robot with `G28`
+5. Detect the current Hanoi state
+6. Compute the move sequence
+7. Execute each disk transfer through the ESP32 bridge
+8. Verify the state after each move
+9. Continue until the puzzle is solved
 
-[Insert final command to run autonomous mode.]
-
+The system can stop if the firmware does not acknowledge a command, if the detected state does not match the expected state, or if the user pauses the execution. This makes the autonomous mode safer during testing, especially while the camera detection is still being tuned.
 
 # Manual Control
 
-Manual control is useful for testing, calibration, and debugging.
+Manual control is used for testing, calibration, and debugging. It is also useful when checking if the ESP32, Arduino, motors, endstops, and gripper are communicating correctly.
 
-The user should be able to move the arm manually through a software interface or command system.
+The interface supports:
 
-### Manual actions
+- XY jogging
+- Z up and down movement
+- Wrist rotation
+- Servo open and close
+- Absolute position moves
+- Manual command sending
+- Homing
+- Position sync
+- Endstop checks
+- Emergency stop
 
-- Move shoulder joint
-- Move elbow joint
-- Move Z-axis up and down
-- Rotate gripper
-- Open and close gripper
-- Run homing sequence
-- Stop motion in case of problem
-
-[Insert manual control interface.]
-
-[Insert control commands.]
+The manual interface also shows command logs and firmware responses. This helps debug problems such as a disconnected ESP32, a missing Arduino response, an endstop problem, or a move being rejected by the firmware limits.
 
 
 # Bill of Materials
