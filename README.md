@@ -487,6 +487,11 @@ The ESP32 IP can also be changed directly from the interface.
 
 ## Browser Interface
 
+<p align="center">
+  <img src="docs/images/interface.png" alt="Main interface" width="49%">
+  <img src="docs/images/manual.png" alt="Manual control interface" width="49%">
+</p>
+
 The browser interface is the main control panel of the robot. It provides manual arm control, absolute position control, camera preview, Hanoi state detection, solver controls, and command logs.
 
 Commands are sent from the browser to the ESP32 using HTTP. The ESP32 then forwards them to the Arduino Mega through serial communication. This keeps the browser independent from the motor control details: the interface decides what command should be sent, while the firmware handles how the robot actually moves.
