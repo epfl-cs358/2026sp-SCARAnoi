@@ -122,7 +122,7 @@ The full mechanical assembly is available here: [Full SCARAnoi assembly design](
 
 ## Base
 
-![alt text](docs\images\scara-base-full.png)
+![SCARA base full assembly](docs/images/scara-base-full.png)
 
 The base is the main structural support of SCARAnoi. It holds the vertical Z-axis mechanism, supports the rotating shoulder platform, and keeps the robot stable while the arm is moving.
 
@@ -192,7 +192,7 @@ Attach the shoulder platform to the 160-tooth pulley using four M2.5×12 screws.
 
 Insert two M3 heat-set inserts for each rod clamp into the shoulder platform, for a total of six inserts. Place the three rod clamps and attach them using M3×12 screws.
 
-![alt text](.\docs\images\actuators.png)
+![Actuators](./docs/images/actuators.png)
 
 The insert holes for the rod clamps pass through the shoulder platform. Flip the platform and reuse two accessible holes to mount the limit switch actuators. Avoid the clamp located on the belt side. Insert the heat-set inserts from the opposite side, then attach the two actuators using one M3×12 screw each.
 
@@ -216,7 +216,7 @@ Before closing the main base, it is better to install and wire the three limit s
 
 The third limit switch is mounted on the shoulder platform. First screw it to its holder using two M2 screws, then attach the holder to the shoulder platform using two M2.5 screws. For this, insert two M2.5 heat-set inserts into the corresponding holes in the shoulder platform. Route the limit switch wires through the nearest hole in the main base, then pass them together with the motor wires through the opening between the main base and the electrical box.
 
-![alt text](.\docs\images\rod-bearing.png)
+![Rod bearing](./docs/images/rod-bearing.png)
 
 After this, close the main SCARA base by installing the top face. Then install the three 8 mm smooth rods vertically. Place the 8x22x7 ball bearing into its matching hole in the platform, insert each rod into its clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during Z-axis motion and prevent it from tilting, so they should be as parallel as possible. If they are misaligned, the platform may create friction or get stuck.
 
