@@ -53,7 +53,7 @@
 // ========================= USER SETTINGS =========================
 // ================================================================
 
-#define G_CODE_SERIAL Serial
+#define G_CODE_SERIAL Serial2
 
 // Serial speed. This matches your old Marlin config.
 static const long BAUDRATE = 250000;
@@ -73,10 +73,10 @@ static float E_START = 121.711f;
 
 static float Z_UP = -140.0f;
 static float Z_LAYER1 = -232.0f;
-static float Z_LAYER2 = -217.0f;
-static float Z_LAYER3 = -202.0f;
-static float Z_LAYER4 = -187.0f;
-static float Z_LAYER5 = -172.0f;
+static float Z_LAYER2 = -215.0f;
+static float Z_LAYER3 = -200.0f;
+static float Z_LAYER4 = -185.0f;
+static float Z_LAYER5 = -170.0f;
 
 static float X_PEG2 = 144.0f;
 static float X_PEG1 = 24.0f;
@@ -304,12 +304,12 @@ static float Z_HOME_BACKOFF_MM         = 3.0f;
 static float E_HOME_BACKOFF_DEG        = 3.0f;
 
 // ------------------------- Servo gripper -------------------------
-static int SERVO_OPEN_ANGLE  = 120;
-static int SERVO_CLOSE_ANGLE1 = 80;
-static int SERVO_CLOSE_ANGLE2 = 60;
-static int SERVO_CLOSE_ANGLE3 = 40;
-static int SERVO_CLOSE_ANGLE4 = 20;
-static int SERVO_CLOSE_ANGLE5 = 0;
+static int SERVO_OPEN_ANGLE  = 150;
+static int SERVO_CLOSE_ANGLE1 = 110;
+static int SERVO_CLOSE_ANGLE2 = 90;
+static int SERVO_CLOSE_ANGLE3 = 70;
+static int SERVO_CLOSE_ANGLE4 = 50;
+static int SERVO_CLOSE_ANGLE5 = 20;
 static int SERVO_MIN_ANGLE   = 0;
 static int SERVO_MAX_ANGLE   = 270;
 
@@ -982,7 +982,7 @@ bool moveLinearCartesian(float targetX, float targetY, float targetZ, float targ
   updateStepCountersFromPosition();
 
 
-  delay(600);
+  delay(300);
   disableMotors();
 
   return true;
@@ -1214,7 +1214,7 @@ bool handleG28(const String &line) {
 
   updatePositionAfterHoming();
   GRIPPER_MODE = tmp;
-  delay(600);
+  delay(300);
   disableMotors();
   return true;
 }
@@ -1329,7 +1329,7 @@ bool moveRawMotors(float deltaShoulderDeg, float deltaElbowDeg, float deltaZMm, 
 
   // Update Cartesian X/Y estimate from the new joint angles.
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
-  delay(600);
+  delay(300);
   disableMotors();
   return true;
 }
