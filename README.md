@@ -301,23 +301,13 @@ The arm is the main kinematic structure of the SCARA robot. It consists of two r
 
 ### Assembly Procedure
 
-3D print the two arm bodies and laser cut the top covers. Before assembly, check that all holes for bearings, screws, shafts, and heat-set inserts are clean and correctly dimensioned.
-
-Install the bearings into the rotational joint housings. The axial bearings support the vertical load transmitted through the arm and allow each segment to rotate smoothly.
-
-Insert the spacer rods through the bearing assemblies and clamp them between the upper and lower plates. This keeps the joints rigid and aligned during motion.
-
-Install the pulleys inside the arm segments. The elbow joint is driven through a GT2 belt transmission. In the project proposal, the elbow uses a 64-tooth driven pulley connected to a 16-tooth motor pulley, giving a 4:1 reduction ratio.
-
-Install the gripper rotation transmission. The gripper rotation is transmitted through the elbow joint using a pulley system and an M5 screw used as a through-shaft. This allows the gripper to rotate independently without placing an additional motor at the end of the arm.
-
-Mount the NEMA 17 motors close to the shoulder joint. Keeping the motors near the base reduces the moving mass and improves the dynamic behavior of the robot.
-
-Adjust the belt tension by slightly shifting the motor position before tightening the screws. The belts should be tight enough to avoid slipping, but not so tight that they create excessive friction.
-
-Close the arm segments with the laser-cut covers and verify that all internal components move freely.
-
-[Insert image of full arm assembly.]
+- Screw the motor holder to the inner arm ceiling using M4 screws and nuts. Then mill the housing holes in the inner arm floor with a drill and milling head, for the purpose of using countersunk screws. Also drill the holes of the microswitch holes about 2mm down (unless you can get M2 screws longer or equal to 14mm).<br>
+- For each of the bearings, insert them inside the housing and then put the housing cover on top, then screw these assemblies to their corresponding floor or ceiling. Beware that the lower bearing assembly is upside down and screwed with countersunk screws. Make sure you get the right housing for the bearings, the outer arm housings are slightly taller than the inner arm housings. Also for the assembly with the double pulley, you need to put together the cover pieces of the inner arm first as told next.<br>
+- The outer arm ceiling holes that interface with the inner arm need to be drilled to allow the screw heads to fit in, otherwise they rub against the outer arm first pulley, which can prevent the arm from moving slowly. <br>
+- Once that is done, you can now screw together the pieces sandwitching the bearings. The inner cover 1 and inner pulley go on the top inner bearing, the inner cover 2 and inner cover 3 go on the bottom inner bearing (they can be held together with friction from the screw fitting in the petg). The outer pulley 2 and outer cover 2 go on the furthest outer bearing, and the outer pulley 1 and outer cover 1 go on the closest outer bearing. This last one has to be screwed with the bearing assembly mentioned earlier.<br>
+- Try to put the motor pulley on the second motor shaft only about 10mm in to be aligned with the height of the outer arm pulley. After that try to connect the with a 400mm belt, it might be easier to put the belt around the motor pulley then sliding into the pulley. You can then move the motor to attain desired tightness, then screw it down. <br>
+- Finally, you can put heat inserts in the holes of inner and outer pillars. And screw everything where it fits.<br>
+- I advise to have the CAD open to check the position of each piece in the full assembly. Some pieces might seem identical but they are not.<br>
 
 ## Gripper
 
