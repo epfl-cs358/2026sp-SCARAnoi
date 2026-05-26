@@ -66,36 +66,33 @@ static float Y_START_COORD = 240.0f;
 static float Z_START_COORD = 150.0f;
 static float E_START_COORD = 0.0f;
 
-static float X_START = 79.635f;
-static float Y_START = 73.546f;
+static float X_START = 78.932f;
+static float Y_START = 73.564f;
 static float Z_START = 0.0f;
 static float E_START = 121.711f;
 
-static float Z_UP = -85.0f;
+static float Z_UP = -140.0f;
 static float Z_LAYER1 = -232.0f;
 static float Z_LAYER2 = -217.0f;
 static float Z_LAYER3 = -202.0f;
 static float Z_LAYER4 = -187.0f;
 static float Z_LAYER5 = -172.0f;
 
-static float X_PEG2 = 145.0f;
-static float X_PEG1 = 18.0f;
-static float X_PEG0 = -100.0f;
+static float X_PEG2 = 144.0f;
+static float X_PEG1 = 24.0f;
+static float X_PEG0 = -95.0f;
 
-static float Y_PEG2 = 265.0f;
-static float Y_PEG1 = 265.0f;
+static float Y_PEG2 = 240.0f;
+static float Y_PEG1 = 250.0f;
 static float Y_PEG0 = 265.0f;
 
-static float X_PEG2_UP = 147.0f;
-static float X_PEG1_UP = 28.0f;
-static float X_PEG0_UP = -90.0f;
+static float X_PEG2_UP = 144.0f;
+static float X_PEG1_UP = 24.0f;
+static float X_PEG0_UP = -95.0f;
 
-static float Y_PEG2_UP = 248.0f;
-static float Y_PEG1_UP = 258.0f;
-static float Y_PEG0_UP = 268.0f;
-
-static int ANGLE_OPEN = 120;
-static int ANGLE_CLOSE = 0;
+static float Y_PEG2_UP = 240.0f;
+static float Y_PEG1_UP = 250.0f;
+static float Y_PEG0_UP = 265.0f;
 
 static int CURRENT_PEG = 1;
 
@@ -160,7 +157,7 @@ static float MAX_Z_MM_S         = 40.0f;
 static float MAX_E_DEG_S        = 350.0f;
 
 static float CURRENT_SPEED = 3500.0f;
-static const float SIDE_SPEED = 10000.0f;
+static const float SIDE_SPEED = 9000.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
@@ -173,11 +170,11 @@ static bool USE_ACCELERATION = true;
 
 // Fraction of the move used for acceleration and deceleration.
 // 0.20 means first 20% accelerates and last 20% decelerates.
-static float ACCELERATION_PORTION = 0.10f;
+static float ACCELERATION_PORTION = 0.2f;
 
 // Start/end delay multiplier.
 // 3.0 means the move starts and ends 3x slower than the target speed.
-static float START_SPEED_FACTOR = 2.0f;
+static float START_SPEED_FACTOR = 2.5f;
 
 // Step pulse width for A4988.
 // 3-5 us is normally safe.
@@ -277,19 +274,21 @@ static int E_HOME_DIR        = -1;
 // Defaults chosen to match your old Marlin home position:
 //   X = -(L1 + L2), Y = 0
 // which corresponds roughly to shoulder = 180°, elbow = 0°.
-static float SHOULDER_HOME_DEG = -79.635f;
-static float ELBOW_HOME_DEG    = -73.546f;
+static float SHOULDER_HOME_DEG = -78.932f;
+static float ELBOW_HOME_DEG    = -73.564f;
 static float Z_HOME_MM         = 0.0f;
-static float E_HOME_DEG        = -121.711f;
+static float E_HOME_DEG        = -121.675f;
+
+
 
 // This is the raw E motor angle after E homing.
 // The reported logical E is computed from this and the current gripper mode.
 
 // Homing speeds.
-static float SHOULDER_HOME_DEG_S = 50.0f;
-static float ELBOW_HOME_DEG_S    = 50.0f;
+static float SHOULDER_HOME_DEG_S = 40.0f;
+static float ELBOW_HOME_DEG_S    = 40.0f;
 static float Z_HOME_MM_S         = 20.0f;
-static float E_HOME_DEG_S        = 50.0f;
+static float E_HOME_DEG_S        = 40.0f;
 
 // Homing travel limits.
 // If no endstop triggers after this much movement, homing fails.
@@ -306,7 +305,11 @@ static float E_HOME_BACKOFF_DEG        = 3.0f;
 
 // ------------------------- Servo gripper -------------------------
 static int SERVO_OPEN_ANGLE  = 120;
-static int SERVO_CLOSE_ANGLE = 0;
+static int SERVO_CLOSE_ANGLE1 = 80;
+static int SERVO_CLOSE_ANGLE2 = 60;
+static int SERVO_CLOSE_ANGLE3 = 40;
+static int SERVO_CLOSE_ANGLE4 = 20;
+static int SERVO_CLOSE_ANGLE5 = 0;
 static int SERVO_MIN_ANGLE   = 0;
 static int SERVO_MAX_ANGLE   = 270;
 
@@ -752,10 +755,8 @@ bool moveJointsToMotor(
   long dE = targetESteps - eSteps;
 
     // Enable only axes that will actually move this command
-  if (dS != 0) enableMotorByLetter('X'); else disableMotorByLetter('X');
-  if (dEl != 0) enableMotorByLetter('Y'); else disableMotorByLetter('Y');
-  if (dZ != 0) enableMotorByLetter('Z'); else disableMotorByLetter('Z');
-  if (dE != 0) enableMotorByLetter('E'); else disableMotorByLetter('E');
+  if (dS != 0 || dEl != 0 || dZ != 0 || dE != 0) enableMotors();
+  else disableMotors();
 
   long absS = labs(dS);
   long absEl = labs(dEl);
@@ -889,8 +890,6 @@ bool moveJointsToMotor(
   current.eMotorDeg = targetEMotorDeg;
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
 
-  disableMotors();
-
   return true;
 }
 
@@ -981,6 +980,10 @@ bool moveLinearCartesian(float targetX, float targetY, float targetZ, float targ
   current.elbowDeg = targetElbow;
   current.eMotorDeg = logicalToMotorE(current.e, current.shoulderDeg, current.elbowDeg);
   updateStepCountersFromPosition();
+
+
+  delay(600);
+  disableMotors();
 
   return true;
 }
@@ -1125,7 +1128,6 @@ bool homeShoulder() {
 }
 
 bool homeElbow() {
-  enableMotorByLetter('E');
   bool homing = homeSingleJoint(
     elbowAxis,
     elbowSteps,
@@ -1141,7 +1143,6 @@ bool homeElbow() {
     ELBOW_HOME_DEG,
     (float)GRIPPER_COMPENSATION_SIGN
   );
-  disableMotorByLetter('E');
   return homing;
 }
 
@@ -1188,38 +1189,33 @@ bool handleG28(const String &line) {
 
   bool homeAll = !hasX && !hasY && !hasZ && !hasE;
 
-  // Home E first, otherwise a full G28 would compensate E during X/Y homing,
-  // then overwrite that compensation by homing E at the end.
+  if (!homeAll) disableMotors();
+  else enableMotors();
+
   if (homeAll || hasZ) {
-    enableMotorByLetter('Z');
     bool homed = homeZ();
-    disableMotorByLetter('Z');
-    if (!homed) return false;
+    if (!homed) return homed;
   }
 
   if (homeAll || hasX) {
-    enableMotorByLetter('X');
     bool homed = homeShoulder();
-    disableMotorByLetter('X');
-    if (!homed) return false;
+    if (!homed) return homed;
   }
 
   if (homeAll || hasY) {
-    enableMotorByLetter('Y');
     bool homed = homeElbow();
-    disableMotorByLetter('Y');
-    if (!homed) return false;
+    if (!homed) return homed;
   }
 
   if (homeAll || hasE) {
-    enableMotorByLetter('E');
     bool homed = homeE();
-    disableMotorByLetter('E');
-    if (!homed) return false;
+    if (!homed) return homed;
   }
 
   updatePositionAfterHoming();
   GRIPPER_MODE = tmp;
+  delay(600);
+  disableMotors();
   return true;
 }
 
@@ -1333,6 +1329,8 @@ bool moveRawMotors(float deltaShoulderDeg, float deltaElbowDeg, float deltaZMm, 
 
   // Update Cartesian X/Y estimate from the new joint angles.
   forwardKinematics(current.shoulderDeg, current.elbowDeg, current.x, current.y);
+  delay(600);
+  disableMotors();
   return true;
 }
 
@@ -1539,15 +1537,15 @@ void handleM280(const String &line) {
 
 void handleM281(const String &line) {
   if (hasParam(line, 'O')) SERVO_OPEN_ANGLE = (int)getParam(line, 'O', SERVO_OPEN_ANGLE);
-  if (hasParam(line, 'C')) SERVO_CLOSE_ANGLE = (int)getParam(line, 'C', SERVO_CLOSE_ANGLE);
+  //if (hasParam(line, 'C')) SERVO_CLOSE_ANGLE = (int)getParam(line, 'C', SERVO_CLOSE_ANGLE);
 
   SERVO_OPEN_ANGLE = constrain(SERVO_OPEN_ANGLE, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);
-  SERVO_CLOSE_ANGLE = constrain(SERVO_CLOSE_ANGLE, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);
+  //SERVO_CLOSE_ANGLE = constrain(SERVO_CLOSE_ANGLE, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);
 
   G_CODE_SERIAL.print(F("echo: gripper open="));
   G_CODE_SERIAL.print(SERVO_OPEN_ANGLE);
-  G_CODE_SERIAL.print(F(" close="));
-  G_CODE_SERIAL.println(SERVO_CLOSE_ANGLE);
+  //G_CODE_SERIAL.print(F(" close="));
+  //G_CODE_SERIAL.println(SERVO_CLOSE_ANGLE);
 }
 
 void handleM282(const String &line) {
@@ -1785,11 +1783,32 @@ void handleCommand(String rawLine) {
     printOk();
     return; 
   }
-  if (line == "CLOSE") { 
-    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE)); 
+  if (line == "CLOSE1") { 
+    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE1)); 
     printOk();
     return; 
   }
+  if (line == "CLOSE2") { 
+    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE2)); 
+    printOk();
+    return; 
+  }
+  if (line == "CLOSE3") { 
+    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE3)); 
+    printOk();
+    return; 
+  }
+  if (line == "CLOSE4") { 
+    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE4)); 
+    printOk();
+    return; 
+  }
+  if (line == "CLOSE5") { 
+    handleM280("M280 P0 S" + String(SERVO_CLOSE_ANGLE5)); 
+    printOk();
+    return; 
+  }
+
 
     // --- CENTER MEASUREMENT COMMANDS ---
   if (line == "CENTER X") { 
