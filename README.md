@@ -221,8 +221,8 @@ The third limit switch is mounted on the shoulder platform. First screw it to it
 After this, close the main SCARA base by installing the top face. Then install the three 8 mm smooth rods vertically. Place the 8x22x7 ball bearing into its matching hole in the platform, insert each rod into its clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during Z-axis motion and prevent it from tilting, so they should be as parallel as possible. If they are misaligned, the platform may create friction or get stuck.
 
 <p align="center">
-  <img src="docs/images/box-top-nc.png" alt="Box top without cover" width="49%">
-  <img src="docs/images/box-top-c.png" alt="Box top with cover" width="49%">
+  <img src="docs/images/box-top-nc.png" alt="Box top without cover" width="49%" height="240px">
+  <img src="docs/images/box-top-c.png" alt="Box top with cover" width="49%" height="240px">
 </p>
 
 Next, assemble the upper lift. Insert M3 heat-set inserts into the top and bottom screw holes of the upper lift side panel. Screw the side panel to the 6 mm MDF upper lift mounting plate. Place the Z-axis NEMA motor in the corresponding slot, screw it in place, and attach the shaft coupler to the motor shaft. Then screw the upper lift cover plate to the top of the side panel.
@@ -233,11 +233,10 @@ To mount the arm, the upper lift cover plate will need to be removed temporarily
 
 ## Arm
 
-The arm is the main kinematic structure of the SCARA robot. It consists of two rigid segments connected by rotational joints.
+The arm is the main kinematic structure of the SCARA robot. It consists of two rigid segments connected by rotational joints. Each joint is driven independently, giving the robot two degrees of freedom for horizontal motion. This allows the gripper to freely reach any object in a radius less than the combined length of the arms.<br>
+The floor and ceiling of each of the arm segments are made using laser-cut 6mm thick MDF. The rest of the parts are made using 3d-printed parts, they include bearing holders, bearing covers, pulleys and pillars.<br>
+Each of the rotation axes (which we named Y for the elbow segment and E for the gripper) is supported by 2 bearings to ensure no undesirable play and proper transmission for the E rotation.
 
-Each joint is driven independently, giving the robot two degrees of freedom for horizontal motion. This allows the gripper to reach the different pegs of the Hanoi platform.
-
-The arm uses a closed design with top covers to protect the internal components, such as belts, pulleys, shafts, and wiring.
 
 ### Files to Laser Cut
 
