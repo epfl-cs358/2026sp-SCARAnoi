@@ -132,25 +132,31 @@ The rotating shoulder platform is mounted on top of the moving Z-axis platform a
 
 ### Files to Laser Cut
 
-- [Main base side plates](path/to/the/file)
-- [Main base top and bottom plates](path/to/the/file)
-- [electrical box side plates](path/to/the/file)
-- [Electrical box cover](path/to/the/file)
-- [Electrical box bottom plate](path/to/the/file)
-- [Electrical box cover holders](path/to/the/file)
-- [Upper lift mounting plate](path/to/the/file)
+- [Main base wide side plates x2](docs\dxf\base\SideBox-2.dxf)
+- [Main base side plate x1](docs\dxf\base\SideBox-1.dxf)
+- [Main base side plate attached to electrical box x1](docs\dxf\base\SideBoxH-1.dxf)
+- [Main base top plate x1](docs\dxf\base\TopBox.dxf)
+- [Main base bottom plate x1](docs\dxf\base\BotBox.dxf)
+- [Electrical box side plates x2](docs\dxf\base\SideElec-2.dxf)
+- [Electrical box side plate plug holes x1](docs\dxf\base\SideElec-PH.dxf)
+- [Electrical box side plate attached to main base box x1](docs\dxf\base\SideElecH-1.dxf)
+- [Electrical box cover x1](docs\dxf\base\TopElec.dxf)
+- [Electrical box bottom plate x1](docs\dxf\base\BotElec.dxf)
+- [Electrical box cover holders x4](docs\dxf\base\MountingElec-4.dxf)
+- [Upper lift mounting plate x1](docs\dxf\base\ShoulderBase.dxf)
 
 ### Files to 3D Print
 
-- [Shoulder platform](path/to/the/file)
-- [Shoulder 160 teeths pulley](path/to/the/file)
-- [Shoulder platform cover](path/to/the/file)
-- [3 Rod clamp supports](path/to/the/file)
-- [Limit switch holders](path/to/the/file)
-- [Upper lift assembly side panel](path/to/the/file)
-- [Upper lift assembly cover plate](path/to/the/file)
-- [Mounting blocks](path/to/the/file)
-- [Limit switch actuators](path/to/the/file)
+- [Shoulder platform x1](docs\stl\base\Platform.stl)
+- [Shoulder 160 teeths pulley x1](docs\stl\base\Pulley160T.stl)
+- [Shoulder platform cover x1](docs\stl\base\Cover.stl)
+- [Rod clamp supports x3](docs\stl\base\SmoothRod_Clamp.stl)
+- [Limit switch holder base x1](docs\stl\base\SwitchHolderPlatform.stl)
+- [Limit switch holder shoulder x1](docs\stl\base\SwitchHolderShoulder.stl)
+- [Upper lift assembly side panel x1](docs\stl\base\UpperLiftSide.stl)
+- [Upper lift assembly cover plate x1](docs\stl\base\UpperLiftCover.stl)
+- [Mounting blocks x8](docs\stl\base\Mounting.stl)
+- [Limit switch actuators x2](docs\stl\base\LimitSwitchActuator.stl)
 
 ### Bill of Materials
 
