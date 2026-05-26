@@ -115,52 +115,12 @@ function validateHanoiState(state, expectedDisks = hanoiExpectedDiskCount()) {
 
 function inferHanoiTargetPeg(state) {
   const disks = state.flat();
-
-  if (disks.length === 0) {
-    return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
-  }
-
-  const occupiedPegs = state
-    .map((peg, idx) => ({ peg, idx }))
-    .filter(entry => entry.peg.length > 0);
-
-  // Special case:
-  // If all detected disks are on one peg, this is the normal starting situation.
-  // Do not choose the same peg just because it gives 0 moves.
-  if (occupiedPegs.length === 1) {
-    const currentPeg = occupiedPegs[0].idx;
-
-    if (currentPeg === 2) {
-      return CONFIG.hanoi?.targetPegWhenAlreadyOnRight ?? 0;
-    }
-
-    return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
-  }
-
-  // General case:
-  // The puzzle is already partially progressed.
-  // Try all possible target pegs and choose the one with the fewest moves.
-  let bestTarget = null;
-  let bestMoveCount = Infinity;
-
-  for (const targetPeg of [0, 1, 2]) {
-    try {
-      const moves = hanoiSolve(state, targetPeg);
-
-      if (moves.length < bestMoveCount) {
-        bestMoveCount = moves.length;
-        bestTarget = targetPeg;
-      }
-    } catch (e) {
-      // Ignore invalid attempts.
-    }
-  }
-
-  if (bestTarget !== null) {
-    return bestTarget;
-  }
-
-  return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
+  if (disks.length === 0) return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
+  const largest = Math.max(...disks);
+  const current = state.findIndex(peg => peg.includes(largest));
+  return current === 2
+    ? (CONFIG.hanoi?.targetPegWhenAlreadyOnRight ?? 0)
+    : (CONFIG.hanoi?.targetPegWhenNotSolved ?? 2);
 }
 
 /**
