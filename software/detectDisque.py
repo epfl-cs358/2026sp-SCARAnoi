@@ -3,12 +3,12 @@ SCARAnoi — Computer Vision Module
 ==================================
 Détection des 5 disques colorés du Tower of Hanoi via ESP32-CAM.
 
-Disques (du plus grand au plus petit) :
-  1. Vert       (green)   — le plus petit
+Disques :
+  1. Vert       (green)      — le plus petit
   2. Jaune      (yellow)
   3. Rouge      (red)
-  4. Rose       (pink)
-  5. Bleu foncé (blue)    — le plus grand
+  4. Bleu foncé (dark_blue)
+  5. Turquoise  (turquoise)  — le plus grand
 
 Principe :
   - Segmentation HSV par couleur (chaque disque a une couleur unique).
@@ -48,19 +48,34 @@ DEFAULT_STREAM_URL = "http://172.21.76.162:81/stream"
 
 # Plages HSV (H ∈ [0,180], S ∈ [0,255], V ∈ [0,255])
 HSV_RANGES = {
-    "green":  [(np.array([ 35,  80,  60]), np.array([ 85, 255, 255]))],
-    "yellow": [(np.array([ 18,  50, 130]), np.array([ 35, 255, 255]))],
-    "red":    [(np.array([  0, 140,  80]), np.array([ 10, 255, 255])),
-               (np.array([170, 140,  80]), np.array([180, 255, 255]))],
-    "pink":   [(np.array([165,  50, 100]), np.array([179, 135, 200])),
-              (np.array([  0,  50, 100]), np.array([ 12, 135, 200]))],
-    "blue":   [(np.array([100, 120,  40]), np.array([130, 255, 200]))],
+    "green":  [(np.array([35, 80, 60]), np.array([85, 255, 255]))],
+    "yellow": [(np.array([18, 50, 130]), np.array([35, 255, 255]))],
+    "red":    [(np.array([0, 140, 80]), np.array([10, 255, 255])),
+               (np.array([170, 140, 80]), np.array([180, 255, 255]))],
+
+    # Disk 4
+    "dark_blue": [
+        (np.array([100, 120, 40]), np.array([130, 255, 200]))
+    ],
+
+    # Disk 5, biggest
+    # You may need to tune this with the real camera image.
+    "turquoise": [
+        (np.array([83, 60, 70]), np.array([100, 255, 255]))
+    ],
 }
 
-# 1 = plus petit (green), 5 = plus grand (blue)
-DISK_ID = {"green": 1, "yellow": 2, "red": 3, "pink": 4, "blue": 5}
+# 1 = smallest, 5 = biggest
+DISK_ID = {
+    "green": 1,
+    "yellow": 2,
+    "red": 3,
+    "dark_blue": 4,
+    "turquoise": 5,
+}
+
 ID_TO_COLOR = {v: k for k, v in DISK_ID.items()}
-DISK_COLORS = ("green", "yellow", "red", "pink", "blue")
+DISK_COLORS = ("green", "yellow", "red", "dark_blue", "turquoise")
 
 NUM_TOWERS = 3
 MIN_CONTOUR_AREA = 300
@@ -72,11 +87,14 @@ MIN_W_OVER_H   = 0.8
 
 PEG_LABEL_Y_FRAC = 0.10
 
-_BGR = {"green":  (0, 200, 0),   "yellow": (0, 220, 220),
-        "red":    (0, 0, 230),   "pink":   (180, 105, 255),
-        "blue":   (230, 80, 0)}
+_BGR = {
+    "green":     (0, 200, 0),
+    "yellow":    (0, 220, 220),
+    "red":       (0, 0, 230),
+    "dark_blue": (230, 80, 0),
+    "turquoise": (208, 224, 64),
+}
 _BGR_PEG = (0, 255, 255)
-
 
 # ============================================================
 #  STRUCTURE DE DONNÉES

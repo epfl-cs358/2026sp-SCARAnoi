@@ -14,11 +14,6 @@ function hanoiExpectedDiskCount() {
   return hanoiRequiresExactDiskCount() ? Number(CONFIG.hanoi?.numDisks ?? hanoiMaxDisks()) : null;
 }
 
-function hanoiDiskColor(diskId) {
-  const defaults = { 1:"#4caf50", 2:"#ffeb3b", 3:"#f44336", 4:"#e91e63", 5:"#2196f3" };
-  return CONFIG.hanoi?.diskColorsById?.[diskId] || defaults[diskId] || "#888";
-}
-
 function hanoiDiskWidthPercent(diskId) {
   const maxDisk = Math.max(1, hanoiMaxDisks());
   const disk = Math.min(Math.max(Number(diskId) || 1, 1), maxDisk);
@@ -28,8 +23,27 @@ function hanoiDiskWidthPercent(diskId) {
   return minWidth + ((disk - 1) / (maxDisk - 1)) * (maxWidth - minWidth);
 }
 
+function hanoiDiskColor(diskId) {
+  const defaults = {
+    1: "#4caf50", // green, smallest
+    2: "#ffeb3b", // yellow
+    3: "#f44336", // red
+    4: "#2196f3", // dark blue
+    5: "#40e0d0"  // turquoise, biggest
+  };
+
+  return CONFIG.hanoi?.diskColorsById?.[diskId] || defaults[diskId] || "#888";
+}
+
 function hanoiDiskName(diskId) {
-  const defaults = { 1:"green", 2:"yellow", 3:"red", 4:"pink", 5:"blue" };
+  const defaults = {
+    1: "green",
+    2: "yellow",
+    3: "red",
+    4: "dark blue",
+    5: "turquoise"
+  };
+
   return CONFIG.hanoi?.diskNamesById?.[diskId] || defaults[diskId] || "";
 }
 
@@ -101,12 +115,52 @@ function validateHanoiState(state, expectedDisks = hanoiExpectedDiskCount()) {
 
 function inferHanoiTargetPeg(state) {
   const disks = state.flat();
-  if (disks.length === 0) return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
-  const largest = Math.max(...disks);
-  const current = state.findIndex(peg => peg.includes(largest));
-  return current === 2
-    ? (CONFIG.hanoi?.targetPegWhenAlreadyOnRight ?? 0)
-    : (CONFIG.hanoi?.targetPegWhenNotSolved ?? 2);
+
+  if (disks.length === 0) {
+    return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
+  }
+
+  const occupiedPegs = state
+    .map((peg, idx) => ({ peg, idx }))
+    .filter(entry => entry.peg.length > 0);
+
+  // Special case:
+  // If all detected disks are on one peg, this is the normal starting situation.
+  // Do not choose the same peg just because it gives 0 moves.
+  if (occupiedPegs.length === 1) {
+    const currentPeg = occupiedPegs[0].idx;
+
+    if (currentPeg === 2) {
+      return CONFIG.hanoi?.targetPegWhenAlreadyOnRight ?? 0;
+    }
+
+    return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
+  }
+
+  // General case:
+  // The puzzle is already partially progressed.
+  // Try all possible target pegs and choose the one with the fewest moves.
+  let bestTarget = null;
+  let bestMoveCount = Infinity;
+
+  for (const targetPeg of [0, 1, 2]) {
+    try {
+      const moves = hanoiSolve(state, targetPeg);
+
+      if (moves.length < bestMoveCount) {
+        bestMoveCount = moves.length;
+        bestTarget = targetPeg;
+      }
+    } catch (e) {
+      // Ignore invalid attempts.
+    }
+  }
+
+  if (bestTarget !== null) {
+    return bestTarget;
+  }
+
+  return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
 }
 
 /**
@@ -194,8 +248,16 @@ function firmwareOpenCommand() {
   return CONFIG.hanoi?.firmwareCommands?.open || "OPEN";
 }
 
-function firmwareCloseCommand() {
-  return CONFIG.hanoi?.firmwareCommands?.close || "CLOSE";
+function firmwareCloseCommand(diskId) {
+  const maxDisk = hanoiMaxDisks();
+  const disk = Math.max(1, Math.min(maxDisk, Number(diskId) || 1));
+  const closeIndex = maxDisk - disk + 1;
+
+  const commands = CONFIG.hanoi?.firmwareCommands?.closeCommandsByDiskId;
+  if (commands && typeof commands === "object" && commands[disk]) return commands[disk];
+
+  const prefix = CONFIG.hanoi?.firmwareCommands?.closePrefix || "CLOSE";
+  return `${prefix}${closeIndex}`;
 }
 
 function firmwareStartCommand() {
@@ -210,7 +272,7 @@ function uiPegLabel(pegIdx) {
  * Build firmware-macro steps for a single disk transfer.
  * The peg coordinates, Z layers, safe height, and servo angles are now owned by
  * the Arduino firmware through custom text commands: PEG0..PEG2, LAYER1..LAYER5,
- * UP, OPEN, and CLOSE. The browser only decides the logical Hanoi sequence.
+ * UP, OPEN, and CLOSE1..CLOSE5. The browser only decides the logical Hanoi sequence.
  */
 function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   if (fromPeg === toPeg) {
@@ -232,7 +294,7 @@ function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   const sourceLayerCmd = firmwareLayerCommand(diskLevel);
   const upCmd = firmwareSafeHeightCommand();
   const openCmd = firmwareOpenCommand();
-  const closeCmd = firmwareCloseCommand();
+  const closeCmd = firmwareCloseCommand(diskId);
 
   const steps = [
     {

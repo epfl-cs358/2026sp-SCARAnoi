@@ -58,7 +58,7 @@ const CONFIG = {
       start: "START",
       up: "UP",
       open: "OPEN",
-      close: "CLOSE",
+      close: "CLOSE1",
       pegCommandsByIndex: ["PEG0", "PEG1", "PEG2"],
       layerPrefix: "LAYER"
     },
