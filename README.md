@@ -221,8 +221,8 @@ The third limit switch is mounted on the shoulder platform. First screw it to it
 After this, close the main SCARA base by installing the top face. Then install the three 8 mm smooth rods vertically. Place the 8x22x7 ball bearing into its matching hole in the platform, insert each rod into its clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during Z-axis motion and prevent it from tilting, so they should be as parallel as possible. If they are misaligned, the platform may create friction or get stuck.
 
 <p align="center">
-  <img src="docs/images/box-top-nc.png" alt="Box top without cover" width="49%" height="240px">
-  <img src="docs/images/box-top-c.png" alt="Box top with cover" width="49%" height="240px">
+  <img src="docs/images/box-top-nc.png" alt="Box top without cover" width="49%">
+  <img src="docs/images/box-top-c.png" alt="Box top with cover" width="49%">
 </p>
 
 Next, assemble the upper lift. Insert M3 heat-set inserts into the top and bottom screw holes of the upper lift side panel. Screw the side panel to the 6 mm MDF upper lift mounting plate. Place the Z-axis NEMA motor in the corresponding slot, screw it in place, and attach the shaft coupler to the motor shaft. Then screw the upper lift cover plate to the top of the side panel.
@@ -234,33 +234,62 @@ To mount the arm, the upper lift cover plate will need to be removed temporarily
 ## Arm
 
 The arm is the main kinematic structure of the SCARA robot. It consists of two rigid segments connected by rotational joints. Each joint is driven independently, giving the robot two degrees of freedom for horizontal motion. This allows the gripper to freely reach any object in a radius less than the combined length of the arms.<br>
-The floor and ceiling of each of the arm segments are made using laser-cut 6mm thick MDF. The rest of the parts are made using 3d-printed parts, they include bearing holders, bearing covers, pulleys and pillars.<br>
-Each of the rotation axes (which we named Y for the elbow segment and E for the gripper) is supported by 2 bearings to ensure no undesirable play and proper transmission for the E rotation.
+- The floor and ceiling of each of the arm segments are made using laser-cut 6mm thick MDF. The rest of the parts are made using 3d-printed parts, they include bearing holders, bearing covers, pulleys and pillars.
+- Each of the rotation axes (which we named Y for the elbow segment and E for the gripper) is supported by 2 bearings to ensure no undesirable play and proper transmission for the E rotation.
+- Each rotation is also limited by 2 limit switches that have approximately an 80 degree angle between them. The effective dead zone can be tuned depending on the piece interfacing with the switches.
+- Both rotation axes have a 3.2:1 pulley ratio. This can be changed by printing pulleys with more teeth or choosing the motor pulleys with less teeth.
 
 
 ### Files to Laser Cut
 
-- [Top cover for the first arm segment](path/to/the/file)
-- Top cover for the second arm segment
-- Optional flat reinforcement plates
+- [Inner arm ceiling](docs\dxf\arm\inner-arm\inner-ceiling.dxf)
+- [Inner arm floor](docs\dxf\arm\inner-arm\inner-floor.dxf)
+- [Motor holder](docs\dxf\arm\inner-arm\motor-holder.dxf)
+- [Outer arm ceiling](docs\dxf\arm\outer-arm\outer-ceiling.dxf)
+- [Outer arm floor](docs\dxf\arm\outer-arm\outer-floor.dxf)
+
 
 ### Files to 3D Print
 
-- [First arm segment body](path/to/the/file)
-- Second arm segment body
-- Pulley housings
-- Bearing housings
-- Spacer supports
-- Motor attachment parts
-- End-effector interface
+#### Inner arm pieces
+
+- [Inner arm cover 1](docs\stl\arm\inner-arm\inner-cover1.stl)
+- [Inner arm cover 2](docs\stl\arm\inner-arm\inner-cover2.stl)
+- [Inner arm cover 3](docs\stl\arm\inner-arm\inner-cover3.stl)
+- [Inner arm housing cover1](docs\stl\arm\inner-arm\inner-housing-cover1.stl)
+- [Inner arm housing cover2](docs\stl\arm\inner-arm\inner-housing-cover2.stl)
+- [Inner arm housing 1](docs\stl\arm\inner-arm\inner-housing1.stl)
+- [Inner arm housing 2](docs\stl\arm\inner-arm\inner-housing2.stl)
+- [Inner pillar 1](docs\stl\arm\inner-arm\inner-pillar1.stl)
+- [Inner pillar 2](docs\stl\arm\inner-arm\inner-pillar2.stl)
+- [Inner pillar 3](docs\stl\arm\inner-arm\inner-pillar3.stl)
+- [Inner pulley](docs\stl\arm\inner-arm\inner-pulley.stl)
+
+#### Outer arm pieces
+- [Outer arm cover 1](docs\stl\arm\outer-arm\outer-cover1.stl)
+- [Outer arm cover 2](docs\stl\arm\outer-arm\outer-cover2.stl)
+- [Outer arm housing cover1](docs\stl\arm\outer-arm\outer-housing-cover1.stl)
+- [Outer arm housing cover2](docs\stl\arm\outer-arm\outer-housing-cover2.stl)
+- [Outer arm housing 1](docs\stl\arm\outer-arm\outer-housing1.stl)
+- [Outer arm housing 2](docs\stl\arm\outer-arm\outer-housing2.stl)
+- [Outer pillar 1](docs\stl\arm\outer-arm\outer-pillar1.stl)
+- [Outer pillar 2](docs\stl\arm\outer-arm\outer-pillar2.stl)
+- [Outer pillar 3](docs\stl\arm\outer-arm\outer-pillar3.stl)
+- [Outer pulley 1](docs\stl\arm\outer-arm\outer-pulley1.stl)
+- [Outer pulley 2](docs\stl\arm\outer-arm\outer-pulley2.stl)
 
 ### Other Parts
 
 | Part | Quantity | Specification / Notes |
 |---|---:|---|
-| NEMA 17 stepper motors | 4 |  |
-| Heat-set inserts | 2 |  |
-| [Insert exact bearing references.] | 4 | 8 mm × 12 mm × 19 mm |
+| NEMA 17 stepper motors | 2 | 17hs4401  |
+| GT2 aluminium Timing pulley| 2 | 20 Teeth |
+| M3 Threaded heat inserts | 12 |  |
+| Deep Groove Ball Bearing 6906 / 61906 RS | 4 |  30x47x9mm |
+| GT2 6mm wide Timing belt | 2 | 400m long |
+| GT2 6mm wide Timing belt | 1 | 350m long |
+| LM6UU Linear Bearing | 4 | 6mm |
+| TR8 Trapezoidal Nut Brass | 1 | 8mm pitch |
 
 ### Assembly Procedure
 
