@@ -82,17 +82,17 @@ static float X_PEG2 = 145.0f;
 static float X_PEG1 = 18.0f;
 static float X_PEG0 = -100.0f;
 
-static float Y_PEG2 = 275.0f;
-static float Y_PEG1 = 275.0f;
-static float Y_PEG0 = 275.0f;
+static float Y_PEG2 = 265.0f;
+static float Y_PEG1 = 265.0f;
+static float Y_PEG0 = 265.0f;
 
 static float X_PEG2_UP = 147.0f;
 static float X_PEG1_UP = 28.0f;
 static float X_PEG0_UP = -90.0f;
 
-static float Y_PEG2_UP = 258.0f;
-static float Y_PEG1_UP = 268.0f;
-static float Y_PEG0_UP = 278.0f;
+static float Y_PEG2_UP = 248.0f;
+static float Y_PEG1_UP = 258.0f;
+static float Y_PEG0_UP = 268.0f;
 
 static int ANGLE_OPEN = 120;
 static int ANGLE_CLOSE = 0;
@@ -160,7 +160,7 @@ static float MAX_Z_MM_S         = 40.0f;
 static float MAX_E_DEG_S        = 350.0f;
 
 static float CURRENT_SPEED = 3500.0f;
-static const float SIDE_SPEED = 12000.0f;
+static const float SIDE_SPEED = 10000.0f;
 
 // Minimum delay between coordinated step ticks.
 // Larger = slower but safer for A4988 and mechanical testing.
