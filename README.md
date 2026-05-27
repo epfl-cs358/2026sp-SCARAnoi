@@ -119,7 +119,6 @@ The structure is divided into four main mechanical assemblies:
 
 The full mechanical assembly is available here: [Full SCARAnoi assembly design](path/to/the/full/assembly/file).
 
-
 ## Base
 
 ![Base full assembly](docs/images/Base/scara-base-full.png) (docs/CAD/Base/Assembly/Base-Assembly.step)
@@ -320,7 +319,7 @@ Close the arm segments with the laser-cut covers and verify that all internal co
 
 ## Gripper
 
-![Arm full assembly](docs/CAD/Gripper/Assembly/Gripper-Assembly.step)
+![Gripper full assembly](docs/CAD/Gripper/Assembly/Gripper-Assembly.step)
 
 The gripper is the end-effector of the SCARA arm. It is designed to grasp, hold, transport, and release the Tower of Hanoi disks.
 
