@@ -433,21 +433,26 @@ The system is centered around an Arduino Mega 2560 with a RAMPS 1.4 board. The p
 </p>
 
 
-### Components
+### Full Electrical BOM
 
-- Arduino Mega 2560
-- RAMPS 1.4 board
-- A4988 stepper drivers
-- NEMA 17 stepper motors
-- DS3230MG servo motor
-- ESP32-CAM
-- FTDI USB-to-TTL adapter for programming the ESP32-CAM
-- 8-channel logic-level converter
-- Limit switches
-- 12 V, 6 A DC power supply
-- LM2596 buck converters
-- Mini USB-B to USB-A cable
-- Wires, connectors, heat-shrink tubing
+| Item | Quantity |
+|---|---:|
+| 12V, 10A DC power supply | 1 |
+| Standard DC barrel jack | 1 |
+| LM2596 buck converters | 2 |
+| Arduino Mega 2560 | 1 |
+| RAMPS 1.4 board | 1 |
+| A4988 stepper drivers | 4 |
+| NEMA 17 stepper motors | 4 |
+| DS3230MG servo motor | 1 |
+| Limit switches | 8 |
+| ESP32-CAM | 1 |
+| 8-channel logic-level converter | 1 |
+| FTDI USB-to-TTL adapter for programming the ESP32-CAM | 1 |
+| Mini USB-B to USB-A cable | 1 |
+| Connectors | 2 |
+| Wires, heat-shrink tubing | Multiple |
+|
 
 ### Assembly Procedure
 
