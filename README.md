@@ -342,7 +342,7 @@ No laser-cut parts are required for the gripper.
 |---|---:|---|
 | DS3230MG servo motor | 1 |  |
 | Aluminium guide rods | 2 | 8 mm diameter |
-| LM8UU linear bearings | As needed | 8 mm × 12 mm × 19 mm |
+| LM8UU linear bearings | 4 | 8 mm × 12 mm × 19 mm |
 | M4 screws and inserts | 4 each | To attach jaws to racks |
 | M3 screws and inserts | 4 each | To attach gripper frame to arm |
 
