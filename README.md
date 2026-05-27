@@ -349,27 +349,32 @@ No laser-cut parts are required for the gripper.
 | LM8UU linear bearings | 4 | 8 mm × 12 mm × 19 mm |
 | M4 screws and inserts | 4 each | To attach jaws to racks |
 | M3 screws and inserts | 4 each | To attach gripper frame to arm |
+| 8 mm metallic retaining rings | 4 | As an additional safety measure to prevent the rods from sliding out of the frame |
 
 ### Assembly Procedure
 
-Begin by 3D printing the main frame, racks, pinion, and jaws. Check that the racks slide smoothly inside the main frame before installing the servo motor.
+### Assembly Procedure
 
-Insert the two 8 mm aluminium guide rods through the gripper frame. These rods guide the jaw holders and reduce lateral play.
-
-Install the LM6UU linear bearings into the jaw holders. Each jaw holder should slide smoothly along the guide rods without excessive friction.
-
-Attach each rack to its corresponding jaw holder using M3 screws. Make sure that both racks remain parallel and correctly aligned with the pinion.
-
-Mount the servo motor at the rear of the structure. Attach the metallic servo hub to the servo output shaft, then connect the pinion to the hub.
-
-Position the pinion so that it meshes correctly with both racks. When the servo rotates, the two racks should move in opposite directions, producing symmetric opening and closing of the jaws.
-
-Attach the two jaws to the racks. The inner surfaces of the jaws should remain parallel to ensure stable contact with the disks.
-
-Test the gripper on all disk sizes before mounting it on the arm. Verify that the maximum jaw opening is sufficient for the largest disk and that the smallest disk can still be held reliably.
+1) 3D print the main frame, racks, pinion, and jaws in PETG, and print the 2 jaw contact layers in TPU.
+2) Glue each TPU contact layer onto its corresponding inner jaw surface using strong glue (...).
+3) In each jaw, insert 2 LM8UU linear bearings into the dedicated mounting holes
+4) Now that the jaws are ready to be mounted, place the M4 threaded inserts into the dedicated holes of the racks and into the mounting holes at the back of the frame.
+5) Mount the servo motor at the rear of the frame using M4 screws.
+6) Install the 2 racks inside the internal guiding channels of the frame. Ensure they slide smoothly (lightly sand the channels if needed).
+7) Glue the plastic servo hub into the pinion
+8) Now that the servo hub and pinion are attached together, mount the servo hub onto the servo shaft while properly aligning the pinion teeth with the teeth of both racks.
+9) Actuate the servo to verify that both racks move symmetrically in opposite directions.
+10) Machine circular grooves at both ends of each aluminum guide rod to allow later the 4 retaining rings to be attached securely.
+11) Insert the 2 aluminum guide rods through one side only of the frame
+12) Slide both jaws onto the rods through their linear bearings, then pass the rods through the opposite side of the frame.
+13) Now make sure that the jaws slide smoothly along the guide rods without excessive friction.
+14) Fasten each jaw to its corresponding rack using M4 screws. The inner surfaces of the jaws should remain perfectly parallel to ensure stable and firm gripping of the disks.
+15) Attach the 4 metallic retaining rings, one on each side of both rods.
+16) Now that the gripper is assembled, test gripping each of the 5 disks with the servo actuated. Verify that the gripper opens sufficiently for the largest disk while still securely gripping the smallest one.
+17) Place the 4 M3 threaded inserts into the dedicated mounting holes in the gripper’s top rectangular extrusion.
+18) Mount the gripper onto the arm by fitting the rectangular extrusion into the dedicated 3D-printed arm interface and fastening it with M3 screws.
 
 [Insert image of full gripper assembly.]
-
 
 ## Hanoi Platform (docs/CAD/Hanoi-Platform/Assembly/Hanoi-Platform-Assembly.step) and Camera Support (docs/CAD/Camera-Support/Assembly/Camera-Support-Assembly.step)
 
