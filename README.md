@@ -121,7 +121,7 @@ The full mechanical assembly is available here: [Full SCARAnoi assembly design](
 
 ## Base
 
-Base full assembly : [Base-Assembly-STEP-file](docs/CAD/Base/Assembly/Base-Assembly.step)
+Base full assembly : [Base-Assembly-STEP-file](docs/CAD/Base/Assembly/base-assembly.step)
 
 ![SCARA base full assembly](docs/images/Base/scara-base-full.png)
 
@@ -240,13 +240,15 @@ To mount the arm, the upper lift cover plate will need to be removed temporarily
 
 ## Arm
 
-Arm full assembly : [Arm-Assembly-STEP-file](docs/CAD/Arm/Assembly/Arm-Assembly.step)
+Arm full assembly : [Arm-Assembly-STEP-file](docs/CAD/Arm/Assembly/arm-assembly.step)
 
 The arm is the main kinematic structure of the SCARA robot. It consists of two rigid segments connected by rotational joints. Each joint is driven independently, giving the robot two degrees of freedom for horizontal motion. This allows the gripper to freely reach any object in a radius less than the combined length of the arms.<br>
 - The floor and ceiling of each of the arm segments are made using laser-cut 6mm thick MDF. The rest of the parts are made using 3d-printed parts, they include bearing holders, bearing covers, pulleys and pillars.
 - Each of the rotation axes (which we named Y for the elbow segment and E for the gripper) is supported by 2 bearings to ensure no undesirable play and proper transmission for the E rotation.
 - Each rotation is also limited by 2 limit switches that have approximately an 80 degree angle between them. The effective dead zone can be tuned depending on the piece interfacing with the switches.
 - Both rotation axes have a 3.2:1 pulley ratio. This can be changed by printing pulleys with more teeth or choosing the motor pulleys with less teeth.
+
+![Arm Assembly](docs/images/Arm/arm-assembly.png)
 
 ### Files to Laser Cut
 
@@ -311,7 +313,7 @@ The arm is the main kinematic structure of the SCARA robot. It consists of two r
 
 ## Gripper
 
-Gripper full assembly : [Gripper-Assembly-STEP-file](docs/CAD/Gripper/Assembly/Gripper-Assembly.step)
+Gripper full assembly : [Gripper-Assembly-STEP-file](docs/CAD/Gripper/Assembly/gripper-assembly.step)
 
 <img src="docs/images/Gripper/Gripper-top-view.png" width="900">
 
@@ -366,7 +368,7 @@ No laser-cut parts are required for the gripper.
 
 [Insert image of full gripper assembly.]
 
-## Hanoi Platform (docs/CAD/Hanoi-Platform/Assembly/Hanoi-Platform-Assembly.step) and Camera Support (docs/CAD/Camera-Support/Assembly/Camera-Support-Assembly.step)
+## Hanoi Platform and Camera Support (docs/CAD/Hanoi-Platform-Camera-Support/Assembly/hanoi-platform-assembly.step) 
 
 The Hanoi platform is the working environment of the robot. It holds the three pegs and the disks manipulated by the SCARA arm.
 
@@ -374,15 +376,15 @@ A camera support structure is integrated into the platform to provide a fixed ov
 
 ### Files to Laser Cut
 
-- [Main Hanoi platform](docs/CAD/Hanoi-Platform/Laser-cut/Main-Hanoi-platform.dxf)
-- [Camera support box](docs/CAD/Camera-Support/Laser-cut/Camera-support-box.dxf)
-- 2 box connectors: [Connector Scara-Hanoi](docs/CAD/Hanoi-Platform/Laser-cut/Connector-Scara-Hanoi.dxf), [Connector Hanoi-Camera](docs/CAD/Camera-Support/Laser-cut/Connector-Hanoi-Camera.dxf)
+- [Main Hanoi platform](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/Main-Hanoi-platform.dxf)
+- [Camera support box](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/Camera-support-box.dxf)
+- 2 box connectors: [Connector Scara-Hanoi](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/Connector-Scara-Hanoi.dxf), [Connector Hanoi-Camera](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/Connector-Hanoi-Camera.dxf)
 
 ### Files to 3D Print
 
-- 5 Hanoi disks: [Disk 1](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk1.stl), [Disk 2](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk2.stl), [Disk 3](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk3.stl), [Disk 4](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk4.stl), [Disk 5](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk5.stl)
-- [Camera case](docs/CAD/Hanoi-Platform/3D-print/Camera-case.stl)
-- [Peg head](docs/CAD/Hanoi-Platform/3D-print/Peg-head.stl)
+- 5 Hanoi disks: [Disk 1](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk1.stl), [Disk 2](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk2.stl), [Disk 3](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk3.stl), [Disk 4](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk4.stl), [Disk 5](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk5.stl)
+- [Camera case](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Camera-case.stl)
+- [Peg head](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Peg-head.stl)
 
 ### Other Parts
 
