@@ -554,7 +554,7 @@ The firmware is located in:
 
 ```text
 software/esp32.ino
-```
+````
 
 The ESP32 exposes these main endpoints:
 
@@ -584,60 +584,109 @@ This firmware implements a smaller Marlin-like command set that is easier to ada
 
 The firmware controls four axes:
 
-- `X`: shoulder joint
-- `Y`: elbow joint
-- `Z`: vertical lift
-- `E`: wrist / gripper rotation
+* `X`: shoulder joint
+* `Y`: elbow joint
+* `Z`: vertical lift
+* `E`: wrist / gripper rotation
 
 The normal movement commands use Cartesian `X/Y` coordinates. Internally, the firmware uses inverse kinematics to convert these coordinates into the shoulder and elbow angles needed by the motors. The `Z` axis is controlled in millimeters, and the `E` axis is treated as a logical gripper angle.
+
+The firmware also supports direct joint movement with `M360`. In that case, `X` and `Y` are interpreted as joint angles in degrees instead of Cartesian coordinates. This is useful for calibration, testing, and moving the robot without using inverse kinematics.
+
+The gripper rotation has two orientation modes:
+
+```text
+M361 S0    Independent mode: the gripper keeps a fixed world direction
+M361 S1    Tracking mode: the gripper stays fixed relative to the elbow
+M361       Report the current gripper mode
+```
+
+In normal `G0` / `G1` movements, the firmware automatically computes the required raw `E` motor angle from the logical gripper angle and the selected gripper mode.
 
 The firmware also includes custom text commands for the Hanoi demo:
 
 ```text
-START     Move to the configured start pose
-PEG0      Move above peg 0
-PEG1      Move above peg 1
-PEG2      Move above peg 2
-UP        Move to the safe height above the current peg
-LAYER1    Move down to layer 1
-LAYER2    Move down to layer 2
-LAYER3    Move down to layer 3
-LAYER4    Move down to layer 4
-LAYER5    Move down to layer 5
-OPEN      Open the gripper
-CLOSE     Close the gripper
+START      Move to the configured start pose, then move above the current peg
+PEG0       Move above peg 0
+PEG1       Move above peg 1
+PEG2       Move above peg 2
+UP         Move to the safe height above the current peg
+LAYER1     Move down to layer 1
+LAYER2     Move down to layer 2
+LAYER3     Move down to layer 3
+LAYER4     Move down to layer 4
+LAYER5     Move down to layer 5
+OPEN       Open the gripper
+CLOSE1     Close the gripper using the layer 1 close angle
+CLOSE2     Close the gripper using the layer 2 close angle
+CLOSE3     Close the gripper using the layer 3 close angle
+CLOSE4     Close the gripper using the layer 4 close angle
+CLOSE5     Close the gripper using the layer 5 close angle
+SPEED      Print the current movement speed
 ```
 
-These macros keep the browser logic simpler. The browser only has to decide the logical Hanoi move, while the exact peg coordinates, Z heights, and gripper angles are stored in the firmware.
+These macros keep the browser logic simpler. The browser only has to decide the logical Hanoi move, while the exact peg coordinates, Z heights, movement speeds, and gripper angles are stored in the firmware.
 
 Common firmware commands include:
 
 ```text
-G28              Home the robot
-G90              Use absolute positioning
-G91              Use relative positioning
-G1 X.. Y.. Z..   Move to a position
-G92 X.. Y.. Z..  Set the current logical position
-M114             Report current position
-M119             Report endstop states
-M17              Enable motors
-M18 / M84        Disable motors
-M112             Emergency stop
-M999             Clear emergency stop
-M280 P0 S..      Move the gripper servo
-M282 P0          Detach the servo
-M503             Print firmware settings
+G0 / G1 X.. Y.. Z.. E.. F..    Move to a position
+G4 P..                         Pause for a given time in milliseconds
+G28 [X] [Y] [Z] [E]            Home all axes or only selected axes
+G90                            Use absolute positioning
+G91                            Use relative positioning
+G92 X.. Y.. Z.. E..            Set the current logical position
+
+M17                            Enable all motors
+M17 X / Y / Z / E              Enable selected motors only
+M18 / M84                      Disable all motors
+M18 X / Y / Z / E              Disable selected motors only
+
+M92 X.. Y.. Z.. E..            Set steps per unit in RAM
+M203 X.. Y.. Z.. E..           Set max axis speeds in RAM
+M211 S0 / S1                   Disable or enable software limits
+
+M112                           Emergency stop
+M999                           Clear emergency stop
+
+M114                           Report current position
+M119                           Report endstop states
+M400                           Wait for motion to complete
+M503                           Print firmware settings
+
+M280 P0 S..                    Move the gripper servo to an angle
+M281 O..                       Set the gripper open angle in RAM
+M282 P0                        Detach the servo
+
+M360 X.. Y.. Z.. E.. F..       Direct joint move without SCARA inverse kinematics
+M361                           Report gripper orientation mode
+M361 S0                        Set independent gripper mode
+M361 S1                        Set tracking gripper mode
 ```
 
 # Motion
 
 The motion system is based on a SCARA arm with a vertical lift and a servo gripper. A complete disk transfer consists of moving above a peg, going down to the correct disk layer, closing the gripper, lifting the disk, moving to another peg, and releasing it.
 
+The firmware uses blocking movements. This means that a command finishes before the next movement command is processed. During motion, the firmware still checks for `M112`, so an emergency stop can interrupt a long movement.
+
+The motors are enabled only when needed and are disabled again after movement. This avoids leaving the motors powered when nothing is moving.
+
 ## Shoulder and Elbow Motion
 
-The shoulder and elbow joints control the horizontal position of the gripper above the Hanoi platform. Instead of manually controlling the joint angles, the user gives target `X/Y` coordinates through the interface. The firmware then computes the corresponding SCARA angles using inverse kinematics.
+The shoulder and elbow joints control the horizontal position of the gripper above the Hanoi platform. For normal movements, the user gives target `X/Y` coordinates through the interface. The firmware then computes the corresponding SCARA angles using inverse kinematics.
 
 This makes manual control easier because the user can think in terms of positions above the board, rather than individual motor angles.
+
+For testing and calibration, the firmware also supports direct joint movement with `M360`. In this mode, `X` and `Y` are not Cartesian coordinates. They are directly interpreted as shoulder and elbow joint angles in degrees.
+
+Example:
+
+```text
+M360 X10 Y-5 Z0 E0 F3000
+```
+
+This moves the shoulder by `10` degrees, the elbow by `-5` degrees, keeps `Z` unchanged, keeps the logical gripper angle unchanged, and uses feed value `3000`.
 
 ## Z-Axis Motion
 
@@ -646,21 +695,47 @@ The Z-axis moves the gripper up and down. It is used to approach a disk, grab it
 For the Hanoi demo, the firmware stores predefined Z heights:
 
 ```text
-Z_UP      Safe height above the pegs
-LAYER1    First disk layer
-LAYER2    Second disk layer
-LAYER3    Third disk layer
-LAYER4    Fourth disk layer
-LAYER5    Fifth disk layer
+Z_UP       Safe height above the pegs
+LAYER1     First disk layer
+LAYER2     Second disk layer
+LAYER3     Third disk layer
+LAYER4     Fourth disk layer
+LAYER5     Fifth disk layer
 ```
 
 This avoids recalculating the vertical position in the browser for every move. The interface can simply send commands such as `UP` or `LAYER3`.
 
+The `PEG0`, `PEG1`, and `PEG2` commands first move the robot up to the safe height, then move horizontally above the selected peg. This reduces the risk of hitting the disks or pegs during side movements.
+
 ## Gripper Motion
 
-The gripper is controlled by a servo motor. During the Hanoi sequence, the browser sends `OPEN` or `CLOSE`, and the firmware moves the servo to the configured angle.
+The gripper is controlled by a servo motor. During the Hanoi sequence, the browser sends `OPEN` or one of the `CLOSE` commands, and the firmware moves the servo to the configured angle.
 
-For manual testing, the servo can also be controlled directly using `M280 P0 S<angle>`. The command `M282 P0` detaches the servo when needed.
+The close angle is split by disk layer:
+
+```text
+CLOSE1
+CLOSE2
+CLOSE3
+CLOSE4
+CLOSE5
+```
+
+This allows the gripper to close with different angles depending on the disk size or layer being handled.
+
+For manual testing, the servo can also be controlled directly using:
+
+```text
+M280 P0 S<angle>
+```
+
+The command:
+
+```text
+M282 P0
+```
+
+detaches the servo when needed.
 
 ## Homing and Limits
 
@@ -670,7 +745,25 @@ Before running a full Hanoi sequence, the robot should be homed with:
 G28
 ```
 
-This gives the robot a known reference position. The firmware also uses endstops and software limits to avoid unsafe movement.
+This gives the robot a known reference position. The firmware can also home only selected axes:
+
+```text
+G28 X
+G28 Y
+G28 Z
+G28 E
+```
+
+The firmware uses endstops with `INPUT_PULLUP`. With a normally-open switch wired between signal and ground, the triggered state is `LOW`.
+
+Software limits can be enabled or disabled using:
+
+```text
+M211 S1    Enable software limits
+M211 S0    Disable software limits
+```
+
+During normal movement, the firmware can also stop the robot if an enabled endstop is triggered unexpectedly.
 
 Useful debug commands are:
 
@@ -680,7 +773,7 @@ M114    Check current position
 M503    Print firmware settings
 ```
 
-After homing, the interface requests the current position again so the workspace graph matches the firmware state.
+After homing, the interface should request the current position again with `M114` so the workspace graph matches the firmware state.
 
 # Computer Vision
 
