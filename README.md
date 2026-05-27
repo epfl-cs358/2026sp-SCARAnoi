@@ -122,7 +122,7 @@ The full mechanical assembly is available here: [Full SCARAnoi assembly design](
 
 ## Base
 
-![SCARA base full assembly](docs/images/scara-base-full.png)
+![Base full assembly](docs/images/Base/scara-base-full.png) (docs/CAD/Base/Assembly/Base-Assembly.step)
 
 The base is the main structural support of SCARAnoi. It holds the vertical Z-axis mechanism, supports the rotating shoulder platform, and keeps the robot stable while the arm is moving.
 
@@ -132,31 +132,31 @@ The rotating shoulder platform is mounted on top of the moving Z-axis platform a
 
 ### Files to Laser Cut
 
-- [Main base wide side plates x2](docs\dxf\base\SideBox-2.dxf)
-- [Main base side plate x1](docs\dxf\base\SideBox-1.dxf)
-- [Main base side plate attached to electrical box x1](docs\dxf\base\SideBoxH-1.dxf)
-- [Main base top plate x1](docs\dxf\base\TopBox.dxf)
-- [Main base bottom plate x1](docs\dxf\base\BotBox.dxf)
-- [Electrical box side plates x2](docs\dxf\base\SideElec-2.dxf)
-- [Electrical box side plate plug holes x1](docs\dxf\base\SideElec-PH.dxf)
-- [Electrical box side plate attached to main base box x1](docs\dxf\base\SideElecH-1.dxf)
-- [Electrical box cover x1](docs\dxf\base\TopElec.dxf)
-- [Electrical box bottom plate x1](docs\dxf\base\BotElec.dxf)
-- [Electrical box cover holders x4](docs\dxf\base\MountingElec-4.dxf)
-- [Upper lift mounting plate x1](docs\dxf\base\ShoulderBase.dxf)
+- [Main base wide side plates x2](docs/CAD/Base/Laser-cut/SideBox-2.dxf)
+- [Main base side plate x1](docs/CAD/Base/Laser-cut/SideBox-1.dxf)
+- [Main base side plate attached to electrical box x1](docs/CAD/Base/Laser-cut/SideBoxH-1.dxf)
+- [Main base top plate x1](docs/CAD/Base/Laser-cut/TopBox.dxf)
+- [Main base bottom plate x1](docs/CAD/Base/Laser-cut/BotBox.dxf)
+- [Electrical box side plates x2](docs/CAD/Base/Laser-cut/SideElec-2.dxf)
+- [Electrical box side plate plug holes x1](docs/CAD/Base/Laser-cut/SideElec-PH.dxf)
+- [Electrical box side plate attached to main base box x1](docs/CAD/Base/Laser-cut/SideElecH-1.dxf)
+- [Electrical box cover x1](docs/CAD/Base/Laser-cut/TopElec.dxf)
+- [Electrical box bottom plate x1](docs/CAD/Base/Laser-cut/BotElec.dxf)
+- [Electrical box cover holders x4](docs/CAD/Base/Laser-cut/MountingElec-4.dxf)
+- [Upper lift mounting plate x1](docs/CAD/Base/Laser-cut/ShoulderBase.dxf)
 
 ### Files to 3D Print
 
-- [Shoulder platform x1](docs\stl\base\Platform.stl)
-- [Shoulder 160 teeths pulley x1](docs\stl\base\Pulley160T.stl)
-- [Shoulder platform cover x1](docs\stl\base\Cover.stl)
-- [Rod clamp supports x3](docs\stl\base\SmoothRod_Clamp.stl)
-- [Limit switch holder base x1](docs\stl\base\SwitchHolderPlatform.stl)
-- [Limit switch holder shoulder x1](docs\stl\base\SwitchHolderShoulder.stl)
-- [Upper lift assembly side panel x1](docs\stl\base\UpperLiftSide.stl)
-- [Upper lift assembly cover plate x1](docs\stl\base\UpperLiftCover.stl)
-- [Mounting blocks x8](docs\stl\base\Mounting.stl)
-- [Limit switch actuators x2](docs\stl\base\LimitSwitchActuator.stl)
+- [Shoulder platform x1](docs/CAD/Base/3D-print/Platform.stl)
+- [Shoulder 160 teeths pulley x1](docs/CAD/Base/3D-print/Pulley160T.stl)
+- [Shoulder platform cover x1](docs/CAD/Base/3D-print/Cover.stl)
+- [Rod clamp supports x3](docs/CAD/Base/3D-print/SmoothRod_Clamp.stl)
+- [Limit switch holder base x1](docs/CAD/Base/3D-print/SwitchHolderPlatform.stl)
+- [Limit switch holder shoulder x1](docs/CAD/Base/3D-print/SwitchHolderShoulder.stl)
+- [Upper lift assembly side panel x1](docs/CAD/Base/3D-print/UpperLiftSide.stl)
+- [Upper lift assembly cover plate x1](docs/CAD/Base/3D-print/UpperLiftCover.stl)
+- [Mounting blocks x8](docs/CAD/Base/3D-print/Mounting.stl)
+- [Limit switch actuators x2](docs/CAD/Base/3D-print/LimitSwitchActuator.stl)
 
 ### Bill of Materials
 
@@ -181,8 +181,8 @@ The rotating shoulder platform is mounted on top of the moving Z-axis platform a
 ### Assembly Procedure
 
 <p align="center">
-  <img src="./docs/images/box-assembly.png" alt="Box assembly CAD" width="49%">
-  <img src="./docs/images/box-assembly-irl.png" alt="Box assembly in real life" width="49%">
+  <img src="./docs/images/Base/box-assembly.png" alt="Box assembly CAD" width="49%">
+  <img src="./docs/images/Base/box-assembly-irl.png" alt="Box assembly in real life" width="49%">
 </p>
 Laser cut the MDF parts for the main base and the attached electrical box. Start by assembling the main SCARA base with the finger joints. This base should not be permanently sealed, since some internal parts may still need to be accessed later, for example to tighten the shoulder screw or rearrange wires going through it. To make the side panels removable, we used small 3D-printed mounting blocks inside the base corners. Each block contains two M4S heat-set inserts, one for each adjacent side panel. The blocks are glued to the inner face of a horizontal panel, and the side panels are screwed into them using M4×12 screws. This keeps the base rigid while still allowing it to be opened if needed.
 
@@ -191,27 +191,27 @@ The electrical box is assembled separately. Its side and bottom panels can be gl
 Do not install the top face of the main SCARA base yet. Keeping the top open makes it easier to mount the Z-axis motor, the shoulder platform, the belt transmission, and the screw/nut assembly. If the top face is installed too early, it will probably need to be removed again.
 
 <p align="center">
-  <img src="docs/images/pulley-plat-sep.png" alt="Pulley platform separated" width="49%">
-  <img src="docs/images/pulley-plat-tog.png" alt="Pulley platform assembled" width="49%">
+  <img src="docs/images/Base/pulley-plat-sep.png" alt="Pulley platform separated" width="49%">
+  <img src="docs/images/Base/pulley-plat-tog.png" alt="Pulley platform assembled" width="49%">
 </p> 
 Attach the shoulder platform to the 160-tooth pulley using four M2.5×12 screws. The two parts were printed separately to make iteration easier: if one part has a defect or needs a design change, only that part has to be reprinted. Insert four M2.5 heat-set inserts into the pulley, then screw the pulley to the shoulder platform.
 
 Insert two M3 heat-set inserts for each rod clamp into the shoulder platform, for a total of six inserts. Place the three rod clamps and attach them using M3×12 screws.
 
-![Actuators](./docs/images/actuators.png)
+![Actuators](./docs/images/Base/actuators.png)
 
 The insert holes for the rod clamps pass through the shoulder platform. Flip the platform and reuse two accessible holes to mount the limit switch actuators. Avoid the clamp located on the belt side. Insert the heat-set inserts from the opposite side, then attach the two actuators using one M3×12 screw each.
 
 <p align="center">
-  <img src="docs/images/no-pulley-box.png" alt="Box without pulley system" width="49%">
-  <img src="docs/images/pulley-box.png" alt="Box with pulley system" width="49%">
+  <img src="docs/images/Base/no-pulley-box.png" alt="Box without pulley system" width="49%">
+  <img src="docs/images/Base/pulley-box.png" alt="Box with pulley system" width="49%">
 </p>
 
 Next, assemble the shoulder rotation stack. Place one axial ball bearing on the box top face, centered around the 10 mm hole. Before placing the shoulder platform, put the belt around the 160-tooth pulley so it is already in position for the belt transmission. Seat it then on the bearing, making sure the bearing fits correctly into the circular recess at the bottom of the pulley.
 
 <p align="center">
-  <img src="docs/images/tighten-box.png" alt="Tightened box assembly" width="49%">
-  <img src="docs/images/10mm-bearing.png" alt="10 mm bearing" width="49%">
+  <img src="docs/images/Base/tighten-box.png" alt="Tightened box assembly" width="49%">
+  <img src="docs/images/Base/10mm-bearing.png" alt="10 mm bearing" width="49%">
 </p>
 
 Place the 10x30x9 ball bearing inside the hole at the center top of the platform, then place the second axial bearing in the circular recess on top of it and add the shoulder platform cover. Align the 10 mm holes of the shoulder platform, pulley, bearings, and base top face. Insert the M10 screw from the top, through the full stack, until it comes out under the base top face. Add the washer and M10 nut from below, then tighten carefully. The stack should have no excessive play, but the shoulder must still rotate freely without too much friction.
@@ -222,13 +222,13 @@ Before closing the main base, it is better to install and wire the three limit s
 
 The third limit switch is mounted on the shoulder platform. First screw it to its holder using two M2 screws, then attach the holder to the shoulder platform using two M2.5 screws. For this, insert two M2.5 heat-set inserts into the corresponding holes in the shoulder platform. Route the limit switch wires through the nearest hole in the main base, then pass them together with the motor wires through the opening between the main base and the electrical box.
 
-![Rod bearing](./docs/images/rod-bearing.png)
+![Rod bearing](./docs/images/Base/rod-bearing.png)
 
 After this, close the main SCARA base by installing the top face. Then install the three 8 mm smooth rods vertically. Place the 8x22x7 ball bearing into its matching hole in the platform, insert each rod into its clamp support and tighten it using two M3 screws. These rods guide the moving shoulder platform during Z-axis motion and prevent it from tilting, so they should be as parallel as possible. If they are misaligned, the platform may create friction or get stuck.
 
 <p align="center">
-  <img src="docs/images/box-top-nc.png" alt="Box top without cover" width="49%">
-  <img src="docs/images/box-top-c.png" alt="Box top with cover" width="49%">
+  <img src="docs/images/Base/box-top-nc.png" alt="Box top without cover" width="49%">
+  <img src="docs/images/Base/box-top-c.png" alt="Box top with cover" width="49%">
 </p>
 
 Next, assemble the upper lift. Insert M3 heat-set inserts into the top and bottom screw holes of the upper lift side panel. Screw the side panel to the 6 mm MDF upper lift mounting plate. Place the Z-axis NEMA motor in the corresponding slot, screw it in place, and attach the shaft coupler to the motor shaft. Then screw the upper lift cover plate to the top of the side panel.
@@ -239,50 +239,51 @@ To mount the arm, the upper lift cover plate will need to be removed temporarily
 
 ## Arm
 
+![Arm full assembly](docs/CAD/Arm/Assembly/Arm-Assembly.step)
+
 The arm is the main kinematic structure of the SCARA robot. It consists of two rigid segments connected by rotational joints. Each joint is driven independently, giving the robot two degrees of freedom for horizontal motion. This allows the gripper to freely reach any object in a radius less than the combined length of the arms.<br>
 - The floor and ceiling of each of the arm segments are made using laser-cut 6mm thick MDF. The rest of the parts are made using 3d-printed parts, they include bearing holders, bearing covers, pulleys and pillars.
 - Each of the rotation axes (which we named Y for the elbow segment and E for the gripper) is supported by 2 bearings to ensure no undesirable play and proper transmission for the E rotation.
 - Each rotation is also limited by 2 limit switches that have approximately an 80 degree angle between them. The effective dead zone can be tuned depending on the piece interfacing with the switches.
 - Both rotation axes have a 3.2:1 pulley ratio. This can be changed by printing pulleys with more teeth or choosing the motor pulleys with less teeth.
 
-
 ### Files to Laser Cut
 
-- [Inner arm ceiling](docs\dxf\arm\inner-arm\inner-ceiling.dxf)
-- [Inner arm floor](docs\dxf\arm\inner-arm\inner-floor.dxf)
-- [Motor holder](docs\dxf\arm\inner-arm\motor-holder.dxf)
-- [Outer arm ceiling](docs\dxf\arm\outer-arm\outer-ceiling.dxf)
-- [Outer arm floor](docs\dxf\arm\outer-arm\outer-floor.dxf)
-
+- [Inner arm ceiling](docs/CAD/Arm/Laser-cut/inner-arm/inner-ceiling.dxf)
+- [Inner arm floor](docs/CAD/Arm/Laser-cut/inner-arm/inner-floor.dxf)
+- [Motor holder](docs/CAD/Arm/Laser-cut/inner-arm/motor-holder.dxf)
+- [Outer arm ceiling](docs/CAD/Arm/Laser-cut/outer-arm/outer-ceiling.dxf)
+- [Outer arm floor](docs/CAD/Arm/Laser-cut/outer-arm/outer-floor.dxf)
 
 ### Files to 3D Print
 
 #### Inner arm pieces
 
-- [Inner arm cover 1](docs\stl\arm\inner-arm\inner-cover1.stl)
-- [Inner arm cover 2](docs\stl\arm\inner-arm\inner-cover2.stl)
-- [Inner arm cover 3](docs\stl\arm\inner-arm\inner-cover3.stl)
-- [Inner arm housing cover1](docs\stl\arm\inner-arm\inner-housing-cover1.stl)
-- [Inner arm housing cover2](docs\stl\arm\inner-arm\inner-housing-cover2.stl)
-- [Inner arm housing 1](docs\stl\arm\inner-arm\inner-housing1.stl)
-- [Inner arm housing 2](docs\stl\arm\inner-arm\inner-housing2.stl)
-- [Inner pillar 1](docs\stl\arm\inner-arm\inner-pillar1.stl)
-- [Inner pillar 2](docs\stl\arm\inner-arm\inner-pillar2.stl)
-- [Inner pillar 3](docs\stl\arm\inner-arm\inner-pillar3.stl)
-- [Inner pulley](docs\stl\arm\inner-arm\inner-pulley.stl)
+- [Inner arm cover 1](docs/CAD/Arm/3D-print/inner-arm/inner-cover1.stl)
+- [Inner arm cover 2](docs/CAD/Arm/3D-print/inner-arm/inner-cover2.stl)
+- [Inner arm cover 3](docs/CAD/Arm/3D-print/inner-arm/inner-cover3.stl)
+- [Inner arm housing cover1](docs/CAD/Arm/3D-print/inner-arm/inner-housing-cover1.stl)
+- [Inner arm housing cover2](docs/CAD/Arm/3D-print/inner-arm/inner-housing-cover2.stl)
+- [Inner arm housing 1](docs/CAD/Arm/3D-print/inner-arm/inner-housing1.stl)
+- [Inner arm housing 2](docs/CAD/Arm/3D-print/inner-arm/inner-housing2.stl)
+- [Inner pillar 1](docs/CAD/Arm/3D-print/inner-arm/inner-pillar1.stl)
+- [Inner pillar 2](docs/CAD/Arm/3D-print/inner-arm/inner-pillar2.stl)
+- [Inner pillar 3](docs/CAD/Arm/3D-print/inner-arm/inner-pillar3.stl)
+- [Inner pulley](docs/CAD/Arm/3D-print/inner-arm/inner-pulley.stl)
 
 #### Outer arm pieces
-- [Outer arm cover 1](docs\stl\arm\outer-arm\outer-cover1.stl)
-- [Outer arm cover 2](docs\stl\arm\outer-arm\outer-cover2.stl)
-- [Outer arm housing cover1](docs\stl\arm\outer-arm\outer-housing-cover1.stl)
-- [Outer arm housing cover2](docs\stl\arm\outer-arm\outer-housing-cover2.stl)
-- [Outer arm housing 1](docs\stl\arm\outer-arm\outer-housing1.stl)
-- [Outer arm housing 2](docs\stl\arm\outer-arm\outer-housing2.stl)
-- [Outer pillar 1](docs\stl\arm\outer-arm\outer-pillar1.stl)
-- [Outer pillar 2](docs\stl\arm\outer-arm\outer-pillar2.stl)
-- [Outer pillar 3](docs\stl\arm\outer-arm\outer-pillar3.stl)
-- [Outer pulley 1](docs\stl\arm\outer-arm\outer-pulley1.stl)
-- [Outer pulley 2](docs\stl\arm\outer-arm\outer-pulley2.stl)
+
+- [Outer arm cover 1](docs/CAD/Arm/3D-print/outer-arm/outer-cover1.stl)
+- [Outer arm cover 2](docs/CAD/Arm/3D-print/outer-arm/outer-cover2.stl)
+- [Outer arm housing cover1](docs/CAD/Arm/3D-print/outer-arm/outer-housing-cover1.stl)
+- [Outer arm housing cover2](docs/CAD/Arm/3D-print/outer-arm/outer-housing-cover2.stl)
+- [Outer arm housing 1](docs/CAD/Arm/3D-print/outer-arm/outer-housing1.stl)
+- [Outer arm housing 2](docs/CAD/Arm/3D-print/outer-arm/outer-housing2.stl)
+- [Outer pillar 1](docs/CAD/Arm/3D-print/outer-arm/outer-pillar1.stl)
+- [Outer pillar 2](docs/CAD/Arm/3D-print/outer-arm/outer-pillar2.stl)
+- [Outer pillar 3](docs/CAD/Arm/3D-print/outer-arm/outer-pillar3.stl)
+- [Outer pulley 1](docs/CAD/Arm/3D-print/outer-arm/outer-pulley1.stl)
+- [Outer pulley 2](docs/CAD/Arm/3D-print/outer-arm/outer-pulley2.stl)
 
 ### Other Parts
 
@@ -291,7 +292,7 @@ The arm is the main kinematic structure of the SCARA robot. It consists of two r
 | NEMA 17 stepper motors | 2 | 17hs4401  |
 | GT2 aluminium Timing pulley| 2 | 20 Teeth |
 | M3 Threaded heat inserts | 12 |  |
-| Deep Groove Ball Bearing 6906 / 61906 RS | 4 |  30x47x9mm |
+| Deep Groove Ball Bearing 6906 / 61906 RS | 4 | 30x47x9mm |
 | GT2 6mm wide Timing belt | 2 | 400m long |
 | GT2 6mm wide Timing belt | 1 | 350m long |
 | LM6UU Linear Bearing | 4 | 6mm |
@@ -317,8 +318,9 @@ Close the arm segments with the laser-cut covers and verify that all internal co
 
 [Insert image of full arm assembly.]
 
-
 ## Gripper
+
+![Arm full assembly](docs/CAD/Gripper/Assembly/Gripper-Assembly.step)
 
 The gripper is the end-effector of the SCARA arm. It is designed to grasp, hold, transport, and release the Tower of Hanoi disks.
 
@@ -328,19 +330,18 @@ The selected system is a parallel-jaw gripper actuated by a rack-and-pinion mech
 
 No laser-cut parts are required for the gripper.
 
-### Files to 3D Print
+### Files to 3D Print (using the default PrusaSlicer settings unless specified otherwise)
 
-- [Gripper frame](path/to/the/file)
-- 2 racks: [Rack A](path/to/the/file), [Rack B](path/to/the/file)
-- [Pinion](path/to/the/file)
-- 2 jaws: [Jaw A](path/to/the/file), [Jaw B](path/to/the/file)
-- 2 TPU contact layers (contact layers with disks): [Layer 1](path/to/the/file), [Layer](path/to/the/file)
+- [Gripper frame](docs/CAD/Gripper/3D-print/PETG/Frame.stl)
+- 2 racks & 1 pinion: [Right Rack](docs/CAD/Gripper/3D-print/PETG/Right-Rack.stl), [Left Rack](docs/CAD/Gripper/3D-print/PETG/Left-Rack.stl), [Pinion](docs/CAD/Gripper/3D-print/PETG/Pinion.stl); Print settings: Vertical Shells > Perimeters = 5
+- 2 jaws: [Right Jaw](docs/CAD/Gripper/3D-print/PETG/Right-Jaw.stl), [Left Jaw](docs/CAD/Gripper/3D-print/PETG/Left-Jaw.stl)
+- 2 TPU contact layers with disks: [Right-Jaw TPU Layer](docs/CAD/Gripper/3D-print/TPU/TPU-Layer-Right-Jaw.stl), [Left-Jaw TPU Layer](docs/CAD/Gripper/3D-print/TPU/TPU-Layer-Left-Jaw.stl); Print settings: Horizontal Shells > Solid Layers > Top = 0, Bottom = 4 / Infill = 25%
 
 ### Other Parts
 
 | Part | Quantity | Specification / Notes |
 |---|---:|---|
-| DMS15 servo motor | 1 |  |
+| DS3230MG servo motor | 1 |  |
 | Aluminium guide rods | 2 | 8 mm diameter |
 | LM8UU linear bearings | As needed | 8 mm × 12 mm × 19 mm |
 | M4 screws and inserts | 4 each | To attach jaws to racks |
@@ -356,7 +357,7 @@ Install the LM6UU linear bearings into the jaw holders. Each jaw holder should s
 
 Attach each rack to its corresponding jaw holder using M3 screws. Make sure that both racks remain parallel and correctly aligned with the pinion.
 
-Mount the DMS15 servo motor at the rear of the structure. Attach the metallic servo hub to the servo output shaft, then connect the pinion to the hub.
+Mount the servo motor at the rear of the structure. Attach the metallic servo hub to the servo output shaft, then connect the pinion to the hub.
 
 Position the pinion so that it meshes correctly with both racks. When the servo rotates, the two racks should move in opposite directions, producing symmetric opening and closing of the jaws.
 
@@ -367,7 +368,7 @@ Test the gripper on all disk sizes before mounting it on the arm. Verify that th
 [Insert image of full gripper assembly.]
 
 
-## Hanoi Platform and Camera Support
+## Hanoi Platform (docs/CAD/Hanoi-Platform/Assembly/Hanoi-Platform-Assembly.step) and Camera Support (docs/CAD/Camera-Support/Assembly/Camera-Support-Assembly.step)
 
 The Hanoi platform is the working environment of the robot. It holds the three pegs and the disks manipulated by the SCARA arm.
 
@@ -375,15 +376,15 @@ A camera support structure is integrated into the platform to provide a fixed ov
 
 ### Files to Laser Cut
 
-- [Main Hanoi platform](path/to/the/file)
-- [Camera support box](path/to/the/file)
-- 2 box connectors: [Connector Scara-Hanoi](path/to/the/file), [Connector Hanoi-Camera](path/to/the/file)
+- [Main Hanoi platform](docs/CAD/Hanoi-Platform/Laser-cut/Main-Hanoi-platform.dxf)
+- [Camera support box](docs/CAD/Camera-Support/Laser-cut/Camera-support-box.dxf)
+- 2 box connectors: [Connector Scara-Hanoi](docs/CAD/Hanoi-Platform/Laser-cut/Connector-Scara-Hanoi.dxf), [Connector Hanoi-Camera](docs/CAD/Camera-Support/Laser-cut/Connector-Hanoi-Camera.dxf)
 
 ### Files to 3D Print
 
-- 5 Hanoi disks: [Disk 1](path/to/the/file), [Disk 2](path/to/the/file), [Disk 3](path/to/the/file), [Disk 4](path/to/the/file), [Disk 5](path/to/the/file)
-- [Camera case](path/to/the/file)
-- [Peg head](path/to/the/file)
+- 5 Hanoi disks: [Disk 1](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk1.stl), [Disk 2](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk2.stl), [Disk 3](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk3.stl), [Disk 4](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk4.stl), [Disk 5](docs/CAD/Hanoi-Platform/3D-print/Disks/Disk5.stl)
+- [Camera case](docs/CAD/Hanoi-Platform/3D-print/Camera-case.stl)
+- [Peg head](docs/CAD/Hanoi-Platform/3D-print/Peg-head.stl)
 
 ### Other Parts
 
@@ -420,7 +421,6 @@ There are no predefined screw holes in the camera support box so that the camera
 
 [Insert image of full Hanoi platform and camera support assembly.]
 
-
 # Electronics
 
 The electronics subsystem provides power, motion control, sensing, and communication for the SCARAnoi robot.
@@ -437,7 +437,7 @@ Power is supplied by a 12 V, 6 A DC power supply. Buck converters are used to pr
 - RAMPS 1.4 board
 - A4988 stepper drivers
 - NEMA 17 stepper motors
-- DMS15 servo motor
+- DS3230MG servo motor
 - ESP32-CAM
 - FTDI USB-to-TTL adapter for programming the ESP32-CAM
 - 8-channel logic-level converter
@@ -457,7 +457,7 @@ Connect the NEMA 17 motors to the RAMPS motor outputs. Check the coil wiring car
 
 Connect the limit switches to the RAMPS inputs. These switches are used for homing and for preventing the arm from exceeding its mechanical range.
 
-Connect the DMS15 servo motor to the dedicated power line from the 7 V buck converter. Do not power the servo directly from the Arduino 5 V rail.
+Connect the DS3230MG servo motor to the dedicated power line from the 7 V buck converter. Do not power the servo directly from the Arduino 5 V rail.
 
 Connect the ESP32-CAM to the system. Use the FTDI adapter for programming and use a logic-level converter for communication between the ESP32 and Arduino when required.
 
@@ -468,12 +468,6 @@ Before powering the full system, verify all voltage rails with a multimeter:
 - 3.3 V ESP32 logic level
 
 [Insert photo of final electronics box or wiring.]
-
-
-Yes — the current text is very placeholder-y, especially the parts with `[Insert ...]`. I rewrote it using the actual files from the zip and corrected the Arduino part: this project is using `custom-firmware.ino`, not Marlin. The placeholder structure comes from your uploaded README draft. 
-
-You can paste this directly:
-
 
 # Software
 
@@ -523,8 +517,8 @@ The ESP32 IP can also be changed directly from the interface.
 ## Browser Interface
 
 <p align="center">
-  <img src="docs/images/interface.png" alt="Main interface" width="49%">
-  <img src="docs/images/manual.png" alt="Manual control interface" width="49%">
+  <img src="docs/images/Control-Interface/interface.png" alt="Main interface" width="49%">
+  <img src="docs/images/Control-Interface/manual.png" alt="Manual control interface" width="49%">
 </p>
 
 The browser interface is the main control panel of the robot. It provides manual arm control, absolute position control, camera preview, Hanoi state detection, solver controls, and command logs.
@@ -685,11 +679,11 @@ The detection currently uses HSV color segmentation. Each disk has a known color
 The current disk convention is:
 
 ```text
-1 = green disk, smallest
-2 = yellow disk
-3 = red disk
-4 = pink disk
-5 = blue disk, largest
+1 = yellow disk, smallest
+2 = red disk
+3 = blue disk
+4 = turquoise disk
+5 = green disk, largest
 ```
 
 The OpenCV server provides:
