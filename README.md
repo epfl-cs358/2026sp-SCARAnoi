@@ -457,7 +457,6 @@ The system is centered around an Arduino Mega 2560 with a RAMPS 1.4 board. The p
 | Mini USB-B to USB-A cable | 1 |
 | Connectors | 2 |
 | Wires, heat-shrink tubing | Multiple |
-|
 
 ### Assembly Procedure
 
@@ -802,7 +801,6 @@ The manual interface also shows command logs and firmware responses. This helps 
 | Deep Groove Ball Bearing 6906 / 61906 RS 30x47x9 mm | 1 |
 | Miniature Deep Groove Ball Bearing 608 2RS 8x22x7 mm | 1 |
 | Axial ball bearing 51110 50x70x14 mm | 2 |
-|
 
 
 # Top contributors:
