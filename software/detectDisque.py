@@ -44,7 +44,7 @@ USE_PEG_ZONES = True
 # Elle sert comme securite generale.
 # OpenCV : y augmente vers le bas.
 ROI_TOP_PCT = 0.08
-ROI_BOTTOM_PCT = 0.22
+ROI_BOTTOM_PCT = 0.4
 
 # Zones manuelles des pegs.
 # Format : peg_id: (x1, y1, x2, y2)
