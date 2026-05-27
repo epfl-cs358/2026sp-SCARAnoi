@@ -121,7 +121,9 @@ The full mechanical assembly is available here: [Full SCARAnoi assembly design](
 
 ## Base
 
-![Base full assembly](docs/images/Base/scara-base-full.png) (docs/CAD/Base/Assembly/Base-Assembly.step)
+Base full assembly : ![Base-Assembly-STEP-file] (docs/CAD/Base/Assembly/Base-Assembly.step)
+
+![SCARA base full assembly](docs/images/Base/scara-base-full.png)
 
 The base is the main structural support of SCARAnoi. It holds the vertical Z-axis mechanism, supports the rotating shoulder platform, and keeps the robot stable while the arm is moving.
 
@@ -238,7 +240,7 @@ To mount the arm, the upper lift cover plate will need to be removed temporarily
 
 ## Arm
 
-![Arm full assembly](docs/CAD/Arm/Assembly/Arm-Assembly.step)
+Arm full assembly : ![Arm-Assembly-STEP-file] (docs/CAD/Arm/Assembly/Arm-Assembly.step)
 
 The arm is the main kinematic structure of the SCARA robot. It consists of two rigid segments connected by rotational joints. Each joint is driven independently, giving the robot two degrees of freedom for horizontal motion. This allows the gripper to freely reach any object in a radius less than the combined length of the arms.<br>
 - The floor and ceiling of each of the arm segments are made using laser-cut 6mm thick MDF. The rest of the parts are made using 3d-printed parts, they include bearing holders, bearing covers, pulleys and pillars.
@@ -319,7 +321,10 @@ Close the arm segments with the laser-cut covers and verify that all internal co
 
 ## Gripper
 
-![Gripper full assembly](docs/CAD/Gripper/Assembly/Gripper-Assembly.step)
+Gripper full assembly : ![Gripper-Assembly-STEP-file] (docs/CAD/Gripper/Assembly/Gripper-Assembly.step)
+
+![Gripper top view](docs/images/Gripper/Gripper-top-view.png)
+![Gripper back view](docs/images/Gripper/Gripper-back-view.png)
 
 The gripper is the end-effector of the SCARA arm. It is designed to grasp, hold, transport, and release the Tower of Hanoi disks.
 
