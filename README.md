@@ -37,7 +37,8 @@ Enjoy building!
   - [Hanoi Platform and Camera Support](#hanoi-platform-and-camera-support)
 - [Electronics](#electronics)
 - [Software](#software)
-  - [Laptop or Server Software](#laptop-or-server-software)
+  - [Running the Interface](#running-the-interface)
+  - [Browser Interface](#browser-interface)
   - [ESP32 Firmware](#esp32-firmware)
   - [Arduino Firmware](#arduino-firmware)
 - [Motion](#motion)
@@ -49,10 +50,7 @@ Enjoy building!
 - [Hanoi Algorithm](#hanoi-algorithm)
 - [Autonomous Operation](#autonomous-operation)
 - [Manual Control](#manual-control)
-- [Bill of Materials](#bill-of-materials)
-  - [Electrical Components](#electrical-components)
-  - [Mechanical Components](#mechanical-components)
-- [Possible Improvements](#possible-improvements)
+- [Full Mechanical BOM](#full-mechanical-bom)
 - [Top contributors](#top-contributors)
 
 
