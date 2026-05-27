@@ -423,13 +423,10 @@ There are no predefined screw holes in the camera support box so that the camera
 
 # Electronics
 
-The electronics subsystem provides power, motion control, sensing, and communication for the SCARAnoi robot.
+The entire system uses a 12V 10A DC power supply, which is plugged into a standard barrel jack. This jack is then wired to two connectors that distribute the power and regroup the common ground for three components: the RAMPS 1.4 board and two LM2596 buck converters. The buck converters are calibrated to regulate 5V and 7V for the EPS32-CAM and DS3230MG servo motor respectively.
 
-The system is centered around an Arduino Mega 2560 with a RAMPS 1.4 board. The RAMPS board distributes power and control signals to the motor drivers. A4988 drivers control the NEMA 17 stepper motors used for the SCARA arm motion.
+The system is centered around an Arduino Mega 2560 with a RAMPS 1.4 board. The port of the Arduino is made accessible in order to upload code to it, while the RAMPS sits on top of it and handles all connections to other components. This includes the four A4988 stepper drivers, the cable to the NEMA 17 stepper motors themselves, the eight limit switches, the servo motor and the 8-channel logic-level converter. This converter is then connected to the ESP32-CAM to allow the serial communication with the Arduino/RAMPS system.
 
-An ESP32-CAM module is used for computer vision. It provides the camera feed used to detect the Hanoi disk configuration. Communication between the ESP32 and Arduino is handled through serial communication, with a logic-level converter used when necessary to protect the 3.3 V ESP32 pins from 5 V Arduino logic.
-
-Power is supplied by a 12 V, 6 A DC power supply. Buck converters are used to provide regulated voltage levels for the servo motor and low-voltage electronics.
 
 ### Components
 
@@ -446,26 +443,28 @@ Power is supplied by a 12 V, 6 A DC power supply. Buck converters are used to pr
 - LM2596 buck converters
 - Mini USB-B to USB-A cable
 - Wires, connectors, heat-shrink tubing
-- [Insert final wiring diagram.]
-- [Insert final KiCad schematic.]
 
 ### Assembly Procedure
 
-Mount the RAMPS 1.4 board onto the Arduino Mega 2560. Insert the A4988 drivers into the appropriate driver slots and verify their orientation before powering the board.
+Start by gluing the barrel jack (to which you have soldered wires) to the right hole when looking at the electrical box from behind the arm (the left hole is the one where the holes for the Arduino Mega are). You can use a hot glue gun for this. Make sure that it’s accessible with the plug when the box is closed and that it’s stable enough to endure a lot of plugs and un-plugs. 
 
-Connect the NEMA 17 motors to the RAMPS motor outputs. Check the coil wiring carefully to avoid incorrect motor behavior.
+Prepare the buck converters by calibrating them and soldering pins to each in/out, +/- hole. Measure out and cut the cables you want to use for the connections.
 
-Connect the limit switches to the RAMPS inputs. These switches are used for homing and for preventing the arm from exceeding its mechanical range.
+Next, fix the RAMPS/Arduino and buck converters to the box by first gluing some small plastic spacers directly over each hole that will act as nuts for the M3 screws, which will then secure the components into place. For the logic converter, you can choose how to fix the 3D-printed holder to the box. A good option is to drill 1.5 mm holes and use small wood screws to secure it.
 
-Connect the DS3230MG servo motor to the dedicated power line from the 7 V buck converter. Do not power the servo directly from the Arduino 5 V rail.
+You can now connect all wires from the two connectors.
 
-Connect the ESP32-CAM to the system. Use the FTDI adapter for programming and use a logic-level converter for communication between the ESP32 and Arduino when required.
+After calibrating them, insert the A4988 drivers into the appropriate driver slots and verify their orientation before powering the board. Connect the NEMA 17 motors to the RAMPS motor outputs. Check the coil wiring carefully to avoid incorrect motor behavior.
+
+Next prepare all limit switches by soldering a signal wire (S) to the NO pin of each switch, and a ground wire (GND) to the C pin of each switch. The other end of the wire should have a female connector pin (this can be soldered too). You can then mount them on each designated spot using M2 screws and nuts. Connect the limit switches to the RAMPS inputs. There are only six designed slots, but one can use the S and GND pins of remaining servo slots on the RAMPS and repurpose them in the firmware. 
+
+Connect the servo motor to the dedicated 7 V buck converter, and connect the third signal wire to the designated slot on the RAMPS. Do not power the servo directly from the Arduino 5 V rail.
+
+Connect the ESP32-CAM to the dedicated 5 V buck converter, and to the logic converter (RX/TX communication and 3V3/GND for reference). Then connect the logic converter to the RAMPS. Use the FTDI adapter for programming the EPS32-CAM. Again, do not power the servo directly from the Arduino 5 V rail.
 
 Before powering the full system, verify all voltage rails with a multimeter:
 - 12 V main input
 - 7 V servo supply
-- 5 V low-voltage electronics supply
-- 3.3 V ESP32 logic level
 
 [Insert photo of final electronics box or wiring.]
 
