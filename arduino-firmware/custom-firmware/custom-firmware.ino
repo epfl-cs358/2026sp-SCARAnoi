@@ -170,11 +170,11 @@ static bool USE_ACCELERATION = true;
 
 // Fraction of the move used for acceleration and deceleration.
 // 0.20 means first 20% accelerates and last 20% decelerates.
-static float ACCELERATION_PORTION = 0.2f;
+static float ACCELERATION_PORTION = 0.15f;
 
 // Start/end delay multiplier.
 // 3.0 means the move starts and ends 3x slower than the target speed.
-static float START_SPEED_FACTOR = 2.5f;
+static float START_SPEED_FACTOR = 2.0f;
 
 // Step pulse width for A4988.
 // 3-5 us is normally safe.
@@ -305,11 +305,11 @@ static float E_HOME_BACKOFF_DEG        = 3.0f;
 
 // ------------------------- Servo gripper -------------------------
 static int SERVO_OPEN_ANGLE  = 150;
-static int SERVO_CLOSE_ANGLE1 = 110;
-static int SERVO_CLOSE_ANGLE2 = 90;
-static int SERVO_CLOSE_ANGLE3 = 70;
-static int SERVO_CLOSE_ANGLE4 = 50;
-static int SERVO_CLOSE_ANGLE5 = 20;
+static int SERVO_CLOSE_ANGLE1 = 120;
+static int SERVO_CLOSE_ANGLE2 = 100;
+static int SERVO_CLOSE_ANGLE3 = 80;
+static int SERVO_CLOSE_ANGLE4 = 60;
+static int SERVO_CLOSE_ANGLE5 = 40;
 static int SERVO_MIN_ANGLE   = 0;
 static int SERVO_MAX_ANGLE   = 270;
 
@@ -2047,8 +2047,6 @@ void loop() {
   while (G_CODE_SERIAL.available() > 0) {
     char c = (char)G_CODE_SERIAL.read();
     Serial.print(c);
-
-    
 
     if (c == '\r') continue;
 
