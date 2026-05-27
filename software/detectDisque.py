@@ -53,11 +53,11 @@ ROI_BOTTOM_PCT = 0.4
 # Convention de ton projet : peg 0 = droite, peg 1 = milieu, peg 2 = gauche.
 #
 # Regle surtout ces lignes si un disque est ignore ou si le robot est detecte.
-PEG_ZONES = { 
-    2: (0.02, 0.35, 0.27, 0.65), # peg gauche 
-    1: (0.35, 0.35, 0.55, 0.65), # peg milieu 
-    0: (0.65, 0.35, 0.82, 0.65), # peg droite 
-    }
+PEG_ZONES = {
+    2: (0.055, 0.3, 0.165, 0.59), # peg gauche
+    1: (0.370, 0.3, 0.480, 0.59), # peg milieu
+    0: (0.650, 0.3, 0.760, 0.59), # peg droite
+}
 
 # Filtres de formes.
 # Les disques doivent ressembler a des rectangles horizontaux.
