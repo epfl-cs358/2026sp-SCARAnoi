@@ -428,6 +428,10 @@ The entire system uses a 12V 10A DC power supply, which is plugged into a standa
 
 The system is centered around an Arduino Mega 2560 with a RAMPS 1.4 board. The port of the Arduino is made accessible in order to upload code to it, while the RAMPS sits on top of it and handles all connections to other components. This includes the four A4988 stepper drivers, the cable to the NEMA 17 stepper motors themselves, the eight limit switches, the servo motor and the 8-channel logic-level converter. This converter is then connected to the ESP32-CAM to allow the serial communication with the Arduino/RAMPS system.
 
+<p align="center">
+<img src="docs\images\Electronics\final_electrical_kicad.png" width="1000">
+</p>
+
 
 ### Components
 
@@ -453,6 +457,10 @@ Prepare the buck converters by calibrating them and soldering pins to each in/ou
 
 Next, fix the RAMPS/Arduino and buck converters to the box by first gluing some small plastic spacers directly over each hole that will act as nuts for the M3 screws, which will then secure the components into place. For the logic converter, you can choose how to fix the 3D-printed holder to the box. A good option is to drill 1.5 mm holes and use small wood screws to secure it.
 
+<p align="center">
+<img src="docs\images\Electronics\spacers.jpg" width="500">
+</p>
+
 You can now connect all wires from the two connectors.
 
 After calibrating them, insert the A4988 drivers into the appropriate driver slots and verify their orientation before powering the board. Connect the NEMA 17 motors to the RAMPS motor outputs. Check the coil wiring carefully to avoid incorrect motor behavior.
@@ -467,7 +475,9 @@ Before powering the full system, verify all voltage rails with a multimeter:
 - 12 V main input
 - 7 V servo supply
 
-[Insert photo of final electronics box or wiring.]
+<p align="center">
+<img src="docs\images\Electronics\connections.jpg" width="500">
+</p>
 
 # Software
 
