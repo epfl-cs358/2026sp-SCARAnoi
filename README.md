@@ -370,6 +370,10 @@ No laser-cut parts are required for the gripper.
 
 ## Hanoi Platform and Camera Support
 
+Hanoi Platform and Camera Support full assembly : [Full-Assembly-STEP-file](docs/CAD/Hanoi-Platform-Camera-Support/Assembly/HanoiPlatformandCameraSupport.step)
+
+![full assembly hanoi](docs/images/Hanoi/full-assembly-hanoi-cad.png)
+
 The Hanoi platform is the working environment of the robot. It holds the three pegs and the disks manipulated by the SCARA arm.
 
 A camera support structure is integrated into the platform to provide a fixed overhead view of the puzzle. This fixed viewpoint helps the computer vision system detect the disk configuration more reliably.
@@ -420,7 +424,8 @@ Mount the camera case to its support box, which is itself mounted at the end of 
 
 There are no predefined screw holes in the camera support box so that the camera angle can be adjusted manually during assembly and once the desired angle is found, the screw holes can be drilled directly in the box. Verify that all three pegs and the full disk area are visible in the camera frame.
 
-[Insert image of full Hanoi platform and camera support assembly.]
+![Hanoi image](docs/images/Hanoi/image.png)
+
 
 # Electronics
 
