@@ -349,7 +349,7 @@ No laser-cut parts are required for the gripper.
 | LM8UU linear bearings | 4 | 8 mm × 12 mm × 19 mm |
 | M4 screws and inserts | 4 each | To attach jaws to racks |
 | M3 screws and inserts | 4 each | To attach gripper frame to arm |
-| 8 mm metallic retaining rings | 4 | As an additional safety measure to prevent the rods from sliding out of the frame |
+| Metallic retaining rings | 4 | 8 mm diameter, serve as an additional safety measure to prevent the rods from sliding out of the frame |
 
 ### Assembly Procedure
 
