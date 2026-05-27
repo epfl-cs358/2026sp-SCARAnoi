@@ -376,16 +376,16 @@ A camera support structure is integrated into the platform to provide a fixed ov
 
 ### Files to Laser Cut
 
-- Main Hanoi platform: [Top Box Face](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\TopHanoiBox.dxf), [Bottom Box Face](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\BottomHanoiBox.dxf), [Big Side Box Face x2](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/BigSideHanoiBox.dxf), [Small Side Box Face x2](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\SideSmallHanoiBox-2.dxf)
-- Camera support box: [Top/Bottom Box Face](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\TopBoxCamera-2.dxf), [Side Box Face with no cable holes x2](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\SideFaceCameraNH.dxf), [Side Box Face with cable holes x2](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\SideFaceCameraH-2.dxf)
-- 2 box connectors: [Connector Scara-Hanoi](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\LiaisonHanoi-Box.dxf), [Connector Hanoi-Camera](docs\CAD\Hanoi-Platform-Camera-Support\Laser-cut\LiaisonCamera-Hanoi.dxf)
+- Main Hanoi platform: [Top Box Face](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/TopHanoiBox.dxf), [Bottom Box Face](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/BottomHanoiBox.dxf), [Big Side Box Face x2](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/BigSideHanoiBox.dxf), [Small Side Box Face x2](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/SideSmallHanoiBox-2.dxf)
+- Camera support box: [Top/Bottom Box Face](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/TopBoxCamera-2.dxf), [Side Box Face with no cable holes x2](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/SideFaceCameraNH.dxf), [Side Box Face with cable holes x2](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/SideFaceCameraH-2.dxf)
+- 2 box connectors: [Connector Scara-Hanoi](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/LiaisonHanoi-Box.dxf), [Connector Hanoi-Camera](docs/CAD/Hanoi-Platform-Camera-Support/Laser-cut/LiaisonCamera-Hanoi.dxf)
 
 ### Files to 3D Print
 
 - 5 Hanoi disks: [Disk 1](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk1.stl), [Disk 2](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk2.stl), [Disk 3](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk3.stl), [Disk 4](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk4.stl), [Disk 5](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Disks/Disk5.stl)
-- Camera case: [Body](docs\CAD\Hanoi-Platform-Camera-Support\3D-print\Pegs\peg-head-body.stl), [Slider](docs\CAD\Hanoi-Platform-Camera-Support\3D-print\Camera\esp_slider.stl)
-- Peg heads x3: [Body](docs\CAD\Hanoi-Platform-Camera-Support\3D-print\Pegs\peg-head-body.stl), [Top](docs\CAD\Hanoi-Platform-Camera-Support\3D-print\Pegs\peg-head-top.stl)
-- [Cable Holder](docs\CAD\Hanoi-Platform-Camera-Support\3D-print\Box\cable_management.stl)
+- Camera case: [Body](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Pegs/peg-head-body.stl), [Slider](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Camera/esp_slider.stl)
+- Peg heads x3: [Body](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Pegs/peg-head-body.stl), [Top](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Pegs/peg-head-top.stl)
+- [Cable Holder](docs/CAD/Hanoi-Platform-Camera-Support/3D-print/Box/cable_management.stl)
 
 ### Other Parts
 
