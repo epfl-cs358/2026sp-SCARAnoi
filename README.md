@@ -767,22 +767,23 @@ The interface supports:
 
 The manual interface also shows command logs and firmware responses. This helps debug problems such as a disconnected ESP32, a missing Arduino response, an endstop problem, or a move being rejected by the firmware limits.
 
+## Full Mechanical BOM
 
-# Bill of Materials
+| Item | Quantity |
+|---|---:|
+| GT2 closed timing belt of length 350 mm | 1 |
+| GT2 closed timing belt of length 400 mm | 3 |
+| GT2 20T, 6 mm belt, 5 mm bore Pulley | 3 |
+| TR8 Trapezoidal Nut Brass Pitch 8mm | 1 |
+| TR8 400mm trapezoidal threaded spindle Pitch 8mm | 1 |
+| Linear bearings 8mm | 8 |
+| 8mm/5mm Flexible Aluminium Coupling with Dowel Screws | 1 |
+| Deep Groove Ball Bearing 6200 2RS 10x30x9 mm | 4 |
+| Deep Groove Ball Bearing 6906 / 61906 RS 30x47x9 mm | 1 |
+| Miniature Deep Groove Ball Bearing 608 2RS 8x22x7 mm | 1 |
+| Axial ball bearing 51110 50x70x14 mm | 2 |
+|
 
-The project uses both electrical and mechanical components.
-
-## Electrical Components
-
-[Insert final electrical BOM table.]
-
-## Mechanical Components
-
-[Insert final mechanical BOM table.]
-
-# Possible Improvements
-
-[ A list of possible improvements here ]
 
 # Top contributors:
 
