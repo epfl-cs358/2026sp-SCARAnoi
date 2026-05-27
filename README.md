@@ -117,7 +117,7 @@ The structure is divided into four main mechanical assemblies:
 - Gripper
 - Hanoi Platform and Camera Support
 
-The full mechanical assembly is available here: [Full SCARAnoi assembly design](path/to/the/full/assembly/file).
+The full mechanical assembly is available here: [Full SCARAnoi assembly design](docs\CAD\Full-Assembly\FinalAssemblySCARAnoi.step).
 
 ## Base
 
@@ -368,7 +368,7 @@ No laser-cut parts are required for the gripper.
 
 [Insert image of full gripper assembly.]
 
-## Hanoi Platform and Camera Support (docs/CAD/Hanoi-Platform-Camera-Support/Assembly/hanoi-platform-assembly.step) 
+## Hanoi Platform and Camera Support
 
 The Hanoi platform is the working environment of the robot. It holds the three pegs and the disks manipulated by the SCARA arm.
 
