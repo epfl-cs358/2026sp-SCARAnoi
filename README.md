@@ -343,8 +343,6 @@ No laser-cut parts are required for the gripper.
 
 ### Assembly Procedure
 
-### Assembly Procedure
-
 1) 3D print the main frame, racks, pinion, and jaws in PETG, and print the 2 jaw contact layers in TPU.
 2) Glue each TPU contact layer onto its corresponding inner jaw surface using strong glue (...).
 3) In each jaw, insert 2 LM8UU linear bearings into the dedicated mounting holes
