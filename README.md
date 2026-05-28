@@ -502,7 +502,7 @@ software/
 ├── command-descriptions.json   # Command descriptions shown in the UI tooltips
 └── custom-firmware/
     └── custom-firmware.ino     # Arduino Mega + RAMPS custom motion firmware
-```
+    └── axis-center.ino         # Axis center calibration helper```
 
 ## Running the Interface
 
