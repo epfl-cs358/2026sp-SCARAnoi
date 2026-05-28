@@ -163,7 +163,7 @@ The rotating shoulder platform is mounted on top of the moving Z-axis platform a
 
 | Part | Quantity | Specification / Notes |
 |---|---:|---|
-| Smooth rods | 3 | 8 mm diameter, 420 mm length |
+| Smooth rods | 3 | 8 mm diameter, 450 mm length |
 | T8 lead screw | 1 | 8 mm diameter, 400 mm length |
 | Axial ball bearings | 2 | 50 mm inner diameter, 70 mm outer diameter, 14 mm width |
 | Deep groove ball bearing | 1 | 10 mm inner diameter, 30 mm outer diameter, 9 mm width |
@@ -298,7 +298,7 @@ The arm is the main kinematic structure of the SCARA robot. It consists of two r
 | Deep Groove Ball Bearing 6906 / 61906 RS | 4 | 30x47x9mm |
 | GT2 6mm wide Timing belt | 2 | 400m long |
 | GT2 6mm wide Timing belt | 1 | 350m long |
-| LM6UU Linear Bearing | 4 | 6mm |
+| LM8UU Linear Bearing | 4 | 8mm |
 | TR8 Trapezoidal Nut Brass | 1 | 8mm pitch |
 
 ### Assembly Procedure
@@ -317,7 +317,7 @@ Gripper full assembly : [Gripper-Assembly-STEP-file](docs/CAD/Gripper/Assembly/g
 
 <img src="docs/images/Gripper/Gripper-top-view.png" width="900">
 
-The gripper is the end-effector of the SCARA arm. It is designed to grasp, hold, transport, and release the Tower of Hanoi disks.
+The gripper is the end-effector (“hand”) of the SCARA arm. It is designed to grasp, hold, transport, and release the Tower of Hanoi disks.
 
 The selected system is a parallel-jaw gripper actuated by a rack-and-pinion mechanism. This design allows both jaws to move symmetrically, which helps keep the disks centered during grasping.
 
@@ -360,19 +360,21 @@ No laser-cut parts are required for the gripper.
 13) Now make sure that the jaws slide smoothly along the guide rods without excessive friction.
 14) Fasten each jaw to its corresponding rack using M4 screws. The inner surfaces of the jaws should remain perfectly parallel to ensure stable and firm gripping of the disks.
 15) Attach the 4 metallic retaining rings, one on each side of both rods.
-
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/51f0738c-b59f-4373-a2b8-347de1ae71f2" />
-
 16) Now that the gripper is assembled, test gripping each of the 5 disks with the servo actuated. Verify that the gripper opens sufficiently for the largest disk while still securely gripping the smallest one.
 17) Place the 4 M3 threaded inserts into the dedicated mounting holes in the gripper’s top rectangular extrusion.
 18) Mount the gripper onto the arm by fitting the rectangular extrusion into the dedicated 3D-printed arm interface and fastening it with M3 screws.
 
-The final assembly should look as follows (with the retaining rings attached):
+The final assembly should look as follows (with the retaining rings attached on both sides):
 
-<img width="700" alt="image" src="https://github.com/user-attachments/assets/3249427b-3118-46b1-9e02-c35fc7c77143" />
-<img width="700" alt="image" src="https://github.com/user-attachments/assets/8347414d-5fe6-432d-9c21-296147ed2c67" />
+<p align="center">
+  <img src="docs/images/Gripper/Gripper-front-view.png" width="49%"/>
+  <img src="docs/images/Gripper/Gripper-back-view.png" width="49%"/>
+</p>
 
-<img width="700" alt="image" src="https://github.com/user-attachments/assets/91dbc6f6-7df6-492d-b1e6-dc7e197ff816" />
+<p align="center">
+  <img src="docs/images/Gripper/Gripper-side-view.png" width="49%"/>
+  <img src="docs/images/Gripper/Gripper-retaining-rings.png" width="49%"/>
+</p>
 
 ## Hanoi Platform and Camera Support
 
