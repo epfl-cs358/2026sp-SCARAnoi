@@ -117,7 +117,7 @@ The structure is divided into four main mechanical assemblies:
 - Gripper
 - Hanoi Platform and Camera Support
 
-The full mechanical assembly is available here: [Full SCARAnoi assembly design](docs\CAD\Full-Assembly\FinalAssemblySCARAnoi.step).
+The full mechanical assembly is available here: [Full SCARAnoi assembly design](docs/CAD/Full-Assembly/FinalAssemblySCARAnoi.step).
 
 ## Base
 
