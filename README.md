@@ -775,6 +775,10 @@ After homing, the interface should request the current position again with `M114
 
 # Computer Vision
 
+<p align="center">
+  <img src="docs/images/Control-Interface/vision.png" alt="Computer Vision" width="500">
+</p>
+
 The computer vision system detects the colored Hanoi disks from the ESP32-CAM image. The ESP32-CAM provides the raw stream, and the Python OpenCV server processes it locally.
 
 The main files are:
