@@ -16,6 +16,8 @@
 
 # SCARA Arm - Solving Hanoi Tower
 
+![alt text](docs/images/scaranoi.png)
+
 The SCARAnoi project aims to design and build a SCARA robot arm capable of solving the Tower of Hanoi problem using computer vision and autonomous manipulation.
 
 The system combines a mechanically designed SCARA arm, a vertical motion axis, a parallel-jaw gripper, a Hanoi platform with three pegs and multiple disks, and a camera-based detection pipeline. The robot detects the position and size of the disks, determines the current configuration of the puzzle, computes the required sequence of moves, and executes the corresponding pick-and-place actions. It is designed to solve standard Tower of Hanoi configurations and to handle intermediate or non-standard configurations by recomputing the solution from the detected state.
@@ -885,6 +887,8 @@ The intended workflow is:
 The system can stop if the firmware does not acknowledge a command, if the detected state does not match the expected state, or if the user pauses the execution. This makes the autonomous mode safer during testing, especially while the camera detection is still being tuned.
 
 ## Error Detection
+
+[Demo video](https://www.youtube.com/watch?v=a2-W_I98xwk)
 
 We also wanted the interface to be usable as a small interactive Hanoi game, not only as an automatic solver. The idea is that a player can try to solve the Tower of Hanoi manually, while the system uses the camera to check whether each move is correct.
 
