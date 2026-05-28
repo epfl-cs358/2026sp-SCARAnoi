@@ -85,8 +85,8 @@
               <div id="hanoiVerificationBody">Expected and detected states will appear here.</div>
             </div>
             <div class="hanoi-verification-actions">
-              <button class="btn btn-primary btn-small" id="hanoiRedoMoveBtn" type="button" disabled>Redo previous action</button>
-              <button class="btn btn-secondary btn-small" id="hanoiIgnoreVerificationBtn" type="button" disabled>Ignore and proceed</button>
+              <button class="btn btn-secondary btn-small" id="hanoiVerificationSelfFixBtn" type="button" disabled>I’ll fix it myself</button>
+              <button class="btn btn-primary btn-small" id="hanoiVerificationRecoverBtn" type="button" disabled>Fix for me</button>
             </div>
           </div>
           <details class="pro-soft-details">
@@ -105,6 +105,14 @@
           <details class="pro-header-details">
             <summary>Manual state</summary>
             <div class="hanoi-state-editor pro-manual-state-editor">
+              <div class="hanoi-peg-input-group">
+                <label class="field-label" for="hanoiTargetPeg">Destination peg</label>
+                <select id="hanoiTargetPeg">
+                  <option value="0">Peg 0</option>
+                  <option value="1">Peg 1</option>
+                  <option value="2" selected>Peg 2</option>
+                </select>
+              </div>
               <div class="hanoi-peg-input-group">
                 <label class="field-label">Peg 0 bottom→top</label>
                 <input id="hanoiPeg0Input" type="text" placeholder="e.g. 3 2 1 or 5 4 3 2 1" />
@@ -313,6 +321,21 @@
           </div>
         </div>
       </details>
+    </section>
+
+    <section class="pro-human-panel pro-human-panel-bottom">
+      <div class="pro-human-copy">
+        <div class="pro-kicker">Human play</div>
+        <h2>Error detection mode</h2>
+        <p>Play the Tower of Hanoi yourself. After each move, check the board to confirm it is still legal. If you make a mistake, the arm can repair the board to the nearest solvable state and stop there.</p>
+      </div>
+      <div class="pro-human-actions">
+        <button class="btn btn-secondary" id="hanoiHumanModeBtn" type="button">Enter human play mode</button>
+        <button class="btn btn-primary" id="hanoiHumanCheckBtn" type="button">Check if legal move</button>
+        <button class="btn btn-secondary" id="hanoiHumanSelfFixBtn" type="button" hidden disabled>Human fixes error</button>
+        <button class="btn btn-secondary" id="hanoiHumanRecoverBtn" type="button" hidden disabled>Arm fixes error</button>
+      </div>
+      <div id="hanoiHumanResult" class="hanoi-human-result">Human play mode is off.</div>
     </section>
   </main>
 
