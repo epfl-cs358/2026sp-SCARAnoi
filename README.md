@@ -341,21 +341,21 @@ No laser-cut parts are required for the gripper.
 | LM8UU linear bearings | 4 | 8 mm × 12 mm × 19 mm |
 | M4 screws and inserts | 4 each | To attach jaws to racks |
 | M3 screws and inserts | 4 each | To attach gripper frame to arm |
-| Metallic retaining rings | 4 | 8 mm diameter, serve as an additional safety measure to prevent the rods from sliding out of the frame |
+| Metallic retaining rings | 4 | 8 mm diameter, serves as an additional safety measure to prevent the rods from sliding out of the frame |
 
 ### Assembly Procedure
 
 1) 3D print the main frame, racks, pinion, and jaws in PETG, and print the 2 jaw contact layers in TPU.
-2) Glue each TPU contact layer onto its corresponding inner jaw surface using strong glue (...).
-3) In each jaw, insert 2 LM8UU linear bearings into the dedicated mounting holes
+2) Glue each TPU contact layer onto its corresponding inner jaw surface using high-strength adhesive.
+3) In each jaw, insert 2 LM8UU linear bearings into the dedicated mounting holes.
 4) Now that the jaws are ready to be mounted, place the M4 threaded inserts into the dedicated holes of the racks and into the mounting holes at the back of the frame.
 5) Mount the servo motor at the rear of the frame using M4 screws.
 6) Install the 2 racks inside the internal guiding channels of the frame. Ensure they slide smoothly (lightly sand the channels if needed).
-7) Glue the plastic servo hub into the pinion
+7) Glue the plastic servo hub into the pinion.
 8) Now that the servo hub and pinion are attached together, mount the servo hub onto the servo shaft while properly aligning the pinion teeth with the teeth of both racks.
 9) Actuate the servo to verify that both racks move symmetrically in opposite directions.
 10) Machine circular grooves at both ends of each aluminum guide rod to allow later the 4 retaining rings to be attached securely.
-11) Insert the 2 aluminum guide rods through one side only of the frame
+11) Insert the 2 aluminum guide rods through one side only of the frame.
 12) Slide both jaws onto the rods through their linear bearings, then pass the rods through the opposite side of the frame.
 13) Now make sure that the jaws slide smoothly along the guide rods without excessive friction.
 14) Fasten each jaw to its corresponding rack using M4 screws. The inner surfaces of the jaws should remain perfectly parallel to ensure stable and firm gripping of the disks.
