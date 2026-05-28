@@ -337,7 +337,7 @@ No laser-cut parts are required for the gripper.
 | Part | Quantity | Specification / Notes |
 |---|---:|---|
 | DS3230MG servo motor | 1 |  |
-| Aluminium guide rods | 2 | 8 mm diameter |
+| Aluminium guide rods | 2 | 8 mm diameter, 14 cm length |
 | LM8UU linear bearings | 4 | 8 mm × 12 mm × 19 mm |
 | M4 screws and inserts | 4 each | To attach jaws to racks |
 | M3 screws and inserts | 4 each | To attach gripper frame to arm |
@@ -360,9 +360,19 @@ No laser-cut parts are required for the gripper.
 13) Now make sure that the jaws slide smoothly along the guide rods without excessive friction.
 14) Fasten each jaw to its corresponding rack using M4 screws. The inner surfaces of the jaws should remain perfectly parallel to ensure stable and firm gripping of the disks.
 15) Attach the 4 metallic retaining rings, one on each side of both rods.
+
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/51f0738c-b59f-4373-a2b8-347de1ae71f2" />
+
 16) Now that the gripper is assembled, test gripping each of the 5 disks with the servo actuated. Verify that the gripper opens sufficiently for the largest disk while still securely gripping the smallest one.
 17) Place the 4 M3 threaded inserts into the dedicated mounting holes in the gripper’s top rectangular extrusion.
 18) Mount the gripper onto the arm by fitting the rectangular extrusion into the dedicated 3D-printed arm interface and fastening it with M3 screws.
+
+The final assembly should look as follows (with the retaining rings attached):
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/3249427b-3118-46b1-9e02-c35fc7c77143" />
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/8347414d-5fe6-432d-9c21-296147ed2c67" />
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/91dbc6f6-7df6-492d-b1e6-dc7e197ff816" />
 
 ## Hanoi Platform and Camera Support
 
@@ -402,7 +412,7 @@ The system uses 5 disks. Each disk has a height of 15 mm and a central hole of 1
 
 | Disk number | Diameter |
 |---|---|
-| 1 | 59 mm |
+| 1, smallest | 59 mm |
 | 2 | 66 mm |
 | 3 | 73 mm |
 | 4 | 80 mm |
@@ -890,6 +900,8 @@ The system can stop if the firmware does not acknowledge a command, if the detec
 ## Error Detection
 
 [Demo video](https://www.youtube.com/watch?v=a2-W_I98xwk)
+
+<img width="1200" alt="photo_5818816066673642886_w" src="https://github.com/user-attachments/assets/51293194-7dd7-4532-a5b7-0948c51a0227" />
 
 We also wanted the interface to be usable as a small interactive Hanoi game, not only as an automatic solver. The idea is that a player can try to solve the Tower of Hanoi manually, while the system uses the camera to check whether each move is correct.
 
