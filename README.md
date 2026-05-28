@@ -58,7 +58,7 @@ Enjoy building!
 
 This video shows the SCARAnoi robot solving the Tower of Hanoi problem autonomously. The system detects the initial disk configuration, computes the sequence of moves, and commands the SCARA arm to pick and place the disks according to the rules of the puzzle.
 
-[Insert demo video here.]
+[Demo video](https://youtu.be/Ctyt3jcGtlI)
 
 
 # How to Build
