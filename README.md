@@ -364,8 +364,6 @@ No laser-cut parts are required for the gripper.
 17) Place the 4 M3 threaded inserts into the dedicated mounting holes in the gripper’s top rectangular extrusion.
 18) Mount the gripper onto the arm by fitting the rectangular extrusion into the dedicated 3D-printed arm interface and fastening it with M3 screws.
 
-[Insert image of full gripper assembly.]
-
 ## Hanoi Platform and Camera Support
 
 Hanoi Platform and Camera Support full assembly : [Full-Assembly-STEP-file](docs/CAD/Hanoi-Platform-Camera-Support/Assembly/HanoiPlatformandCameraSupport.step)
@@ -488,22 +486,22 @@ Before powering the full system, verify all voltage rails with a multimeter:
 
 # Software
 
-The software is split into three main parts. The browser interface is used to control the robot, preview the camera feed, run the Hanoi solver, and send commands. The ESP32-CAM acts as the Wi-Fi and camera bridge. The Arduino Mega, connected to the RAMPS 1.4 board, runs the low-level firmware that moves the motors.
+The software is split into three main parts. The browser interface is used to control the robot, preview the camera feed, detect the Hanoi state, run the solver, execute the move sequence, and display command feedback. The ESP32-CAM acts as the Wi-Fi, camera, and serial bridge. The Arduino Mega, connected to the RAMPS 1.4 board, runs the low-level firmware that moves the motors.
 
 ```text
 software/
 ├── index.html                  # Main browser interface
 ├── style.css                   # Interface styling
-├── app.js                      # Manual control, workspace graph, command sending
-├── config.js                   # ESP32 IP, robot dimensions, firmware commands
-├── hanoi-solver.js             # Hanoi state validation, solver, and move queue
-├── cv_server.py                # Flask/OpenCV bridge for the camera feed and detection
+├── app.js                      # Manual control, workspace graph, command sending, UI logic
+├── config.js                   # ESP32 IP, robot dimensions, command mapping, timing settings
+├── hanoi-solver.js             # Hanoi state validation, solver, move queue, CV checks, error detection
+├── cv_server.py                # Flask/OpenCV bridge for camera processing and detection
 ├── detectDisque.py             # Disk detection using OpenCV and HSV color masks
 ├── requirements.txt            # Python dependencies
 ├── esp32.ino                   # ESP32-CAM HTTP bridge and camera stream
-├── custom-firmware.ino         # Arduino Mega + RAMPS custom motion firmware
-├── axis-center.ino             # Helper code for measuring axis centers
-├── command-descriptions.json   # Command descriptions shown in the UI
+├── command-descriptions.json   # Command descriptions shown in the UI tooltips
+└── custom-firmware/
+    └── custom-firmware.ino     # Arduino Mega + RAMPS custom motion firmware
 ```
 
 ## Running the Interface
@@ -779,7 +777,13 @@ After homing, the interface should request the current position again with `M114
   <img src="docs/images/Control-Interface/vision.png" alt="Computer Vision" width="500">
 </p>
 
-The computer vision system detects the colored Hanoi disks from the ESP32-CAM image. The ESP32-CAM provides the raw stream, and the Python OpenCV server processes it locally.
+The computer vision pipeline runs on the Python server.
+
+```text
+ESP32-CAM stream → cv_server.py → detectDisque.py → annotated stream + JSON state
+```
+
+The browser displays the annotated OpenCV stream from the local server. 
 
 The main files are:
 
@@ -788,28 +792,47 @@ software/cv_server.py
 software/detectDisque.py
 ```
 
-The detection currently uses HSV color segmentation. Each disk has a known color, and the script detects the largest valid contour for each color. It then assigns each detected disk to a peg based on its position in the image and sorts the disks vertically to reconstruct the stack order.
-
-The current disk convention is:
-
-```text
-1 = yellow disk, smallest
-2 = red disk
-3 = blue disk
-4 = turquoise disk
-5 = green disk, largest
-```
-
 The OpenCV server provides:
 
 ```text
-/cv-stream      Annotated live stream
-/cv-snapshot    Latest annotated frame
-/detect         Latest detected Hanoi state as JSON
-/set-esp        Update the ESP32 IP used by the CV server
+/              Browser interface
+/cv-stream     Annotated MJPEG stream
+/cv-snapshot   Latest annotated frame
+/detect        Latest detected Hanoi state as JSON
+/set-esp       Update the ESP32 stream IP
+/health        Debug/status endpoint
 ```
 
-The vision system is especially sensitive to camera angle, lighting, and background movement. For this reason, the detection should first be tested independently before running a full autonomous sequence.
+`detectDisque.py` uses manual peg zones and HSV color masks. The search is restricted to configured rectangles around the three pegs, which reduces false detections from the robot or background.
+
+The current peg convention is:
+
+```text
+Peg 0 = right
+Peg 1 = middle
+Peg 2 = left
+```
+
+The current disk convention in the detection code is:
+
+```text
+1 = yellow
+2 = red
+3 = dark blue
+4 = turquoise
+5 = light green
+```
+
+The detected state is returned as three peg lists, ordered from bottom to top.
+
+Example:
+
+```text
+[[5, 4, 3], [], []]
+```
+
+The annotated stream also draws the ROI limits, peg zones, peg labels, and detected disk boxes.
+
 
 # Hanoi Algorithm
 
@@ -828,6 +851,7 @@ Peg 0: [5, 4, 3]
 Peg 1: []
 Peg 2: []
 ```
+The solver supports partial setups. It does not assume that all five disks are always present. The target peg can also be selected from the interface. If no valid target is selected, the code falls back to the configured target behavior.
 
 Before solving, the state is checked to make sure it is legal. This prevents cases such as duplicate disks or a larger disk being placed on top of a smaller one.
 
@@ -861,6 +885,17 @@ The intended workflow is:
 9. Continue until the puzzle is solved
 
 The system can stop if the firmware does not acknowledge a command, if the detected state does not match the expected state, or if the user pauses the execution. This makes the autonomous mode safer during testing, especially while the camera detection is still being tuned.
+
+## Error Detection
+
+We also wanted the interface to be usable as a small interactive Hanoi game, not only as an automatic solver. The idea is that a player can try to solve the Tower of Hanoi manually, while the system uses the camera to check whether each move is correct.
+
+In this mode, the player moves one disk by hand and then asks the interface to verify the board. The interface captures the current state with the OpenCV detection, compares it with the next state expected by the solver, and reports whether the move was valid.
+
+If the move is correct, the player can continue. If the move is wrong, the interface stops the game and shows that the current board does not match the expected state. The player can then either fix the board manually or ask the robotic arm to correct the mistake when the error can be reversed safely.
+
+The same verification mechanism is also used during automatic execution. After the robot moves a disk, the camera checks that the board actually changed as expected. If the detected state is different from the expected one, the sequence pauses instead of continuing with a wrong board state.
+
 
 # Manual Control
 
