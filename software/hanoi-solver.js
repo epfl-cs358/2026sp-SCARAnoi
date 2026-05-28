@@ -25,11 +25,11 @@ function hanoiDiskWidthPercent(diskId) {
 
 function hanoiDiskColor(diskId) {
   const defaults = {
-    1: "#4caf50", // green, smallest
-    2: "#ffeb3b", // yellow
-    3: "#f44336", // red
-    4: "#2196f3", // dark blue
-    5: "#40e0d0"  // turquoise, biggest
+    1: "#ffeb3b", // yellow, smallest
+    2: "#f44336", // red
+    3: "#2196f3", // dark blue
+    4: "#40e0d0", // turquoise
+    5: "#4caf50", // green, biggest
   };
 
   return CONFIG.hanoi?.diskColorsById?.[diskId] || defaults[diskId] || "#888";
@@ -37,11 +37,11 @@ function hanoiDiskColor(diskId) {
 
 function hanoiDiskName(diskId) {
   const defaults = {
-    1: "green",
-    2: "yellow",
-    3: "red",
-    4: "dark blue",
-    5: "turquoise"
+    1: "yellow",
+    2: "red",
+    3: "dark blue",
+    4: "turquoise",
+    5: "green"
   };
 
   return CONFIG.hanoi?.diskNamesById?.[diskId] || defaults[diskId] || "";
@@ -113,6 +113,101 @@ function validateHanoiState(state, expectedDisks = hanoiExpectedDiskCount()) {
   return { ok: true, error: null };
 }
 
+function isDescendingHanoiPeg(peg) {
+  if (!Array.isArray(peg)) return false;
+  for (let i = 0; i < peg.length - 1; i++) {
+    if (peg[i] <= peg[i + 1]) return false;
+  }
+  return true;
+}
+
+function isLegalHanoiBoard(state) {
+  return Array.isArray(state)
+    && state.length === 3
+    && state.every(isDescendingHanoiPeg);
+}
+
+function serializeHanoiState(state) {
+  return state.map(peg => peg.join(",")).join("|");
+}
+
+function buildHanoiRecoveryPlan(state) {
+  const validity = validateHanoiState(state, hanoiExpectedDiskCount());
+  if (!validity.ok) {
+    return { ok: false, error: validity.error, moves: [], targetState: null };
+  }
+
+  const startState = cloneHanoiState(state);
+  if (isLegalHanoiBoard(startState)) {
+    return { ok: true, error: null, moves: [], targetState: startState };
+  }
+
+  const queue = [startState];
+  const parents = new Map();
+  const moveByKey = new Map();
+  const visited = new Set();
+  const startKey = serializeHanoiState(startState);
+
+  parents.set(startKey, null);
+  visited.add(startKey);
+
+  let index = 0;
+  while (index < queue.length) {
+    const current = queue[index++];
+    const currentKey = serializeHanoiState(current);
+
+    if (isLegalHanoiBoard(current)) {
+      const moves = [];
+      let key = currentKey;
+      while (parents.get(key) !== null) {
+        moves.unshift(moveByKey.get(key));
+        key = parents.get(key);
+      }
+      return { ok: true, error: null, moves, targetState: current };
+    }
+
+    for (let from = 0; from < 3; from++) {
+      const source = current[from];
+      if (!source || source.length === 0) continue;
+
+      const disk = source[source.length - 1];
+      const diskLevel = source.length;
+
+      for (let to = 0; to < 3; to++) {
+        if (to === from) continue;
+
+        const target = current[to];
+        const targetTop = target[target.length - 1];
+        if (target.length > 0 && targetTop <= disk) continue;
+
+        const next = cloneHanoiState(current);
+        next[from].pop();
+        next[to].push(disk);
+        const nextKey = serializeHanoiState(next);
+        if (visited.has(nextKey)) continue;
+
+        visited.add(nextKey);
+        parents.set(nextKey, currentKey);
+        moveByKey.set(nextKey, {
+          disk,
+          from,
+          to,
+          diskLevel,
+          toLevel: next[to].length,
+        });
+        queue.push(next);
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    error: "Unable to find a solvable state from the detected board.",
+    moves: [],
+    targetState: null,
+  };
+}
+
 function inferHanoiTargetPeg(state) {
   const disks = state.flat();
   if (disks.length === 0) return CONFIG.hanoi?.targetPegWhenNotSolved ?? 2;
@@ -121,6 +216,16 @@ function inferHanoiTargetPeg(state) {
   return current === 2
     ? (CONFIG.hanoi?.targetPegWhenAlreadyOnRight ?? 0)
     : (CONFIG.hanoi?.targetPegWhenNotSolved ?? 2);
+}
+
+function readHanoiTargetPeg() {
+  const raw = document.getElementById("hanoiTargetPeg")?.value;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 2 ? parsed : null;
+}
+
+function getSelectedHanoiTargetPeg(state) {
+  return readHanoiTargetPeg() ?? inferHanoiTargetPeg(state);
 }
 
 /**
@@ -232,8 +337,7 @@ function uiPegLabel(pegIdx) {
  * Build firmware-macro steps for a single disk transfer.
  * The peg coordinates, Z layers, safe height, and servo angles are now owned by
  * the Arduino firmware through custom text commands: PEG0..PEG2, LAYER1..LAYER5,
- * UP, OPEN, and CLOSE1..CLOSE5. The browser only decides the logical Hanoi sequence.
- */
+ * UP, OPEN, and CLOSE1..CLOSE5. The browser only decides the logical Hanoi sequence.*/
 function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   if (fromPeg === toPeg) {
     return { steps: [], error: "Source and target peg are the same." };
@@ -255,7 +359,7 @@ function buildMoveGcode(diskId, fromPeg, toPeg, diskLevel, toLevel = 1) {
   const upCmd = firmwareSafeHeightCommand();
   const openCmd = firmwareOpenCommand();
   const closeCmd = firmwareCloseCommand(diskId);
-
+  
   const steps = [
     {
       label: `Move above ${uiPegLabel(fromPeg)}`,
@@ -370,6 +474,12 @@ let hanoiPaused        = false;
 let hanoiFullAuto      = false;  // true = Run all (no confirms)
 let hanoiLiveState     = null;   // simulated tower state, updated after each completed move
 let hanoiVerificationPending = null;
+let hanoiWorkflowMode  = "solver"; // "solver" or "human-play"
+let hanoiHumanAssessment = null;
+let hanoiHumanBusy = false;
+let hanoiHumanPlanReady = false;
+let hanoiHumanDecisionPending = false;
+let hanoiHumanStateHistory = [];
 const HANOI_STEP_DELAY_MS = CONFIG.hanoi?.autoStepDelayMs ?? 2000;
 const HANOI_VERIFY_DELAY_MS = CONFIG.hanoi?.verifyDelayMs ?? HANOI_STEP_DELAY_MS;
 
@@ -393,26 +503,92 @@ function computeExpectedStateAfterMove(stateBefore, move) {
   return next;
 }
 
+function inferSingleMoveBetweenStates(fromState, toState) {
+  if (!Array.isArray(fromState) || !Array.isArray(toState) || fromState.length !== 3 || toState.length !== 3) {
+    return null;
+  }
+
+  const movedDisks = [];
+  for (let disk = 1; disk <= hanoiMaxDisks(); disk++) {
+    let fromPeg = -1;
+    let toPeg = -1;
+    for (let peg = 0; peg < 3; peg++) {
+      if (fromState[peg]?.includes(disk)) fromPeg = peg;
+      if (toState[peg]?.includes(disk)) toPeg = peg;
+    }
+    if (fromPeg !== toPeg) movedDisks.push({ disk, fromPeg, toPeg });
+  }
+
+  if (movedDisks.length !== 1) return null;
+  const move = movedDisks[0];
+  if (move.fromPeg < 0 || move.toPeg < 0) return null;
+
+  const fromLevel = Array.isArray(fromState[move.fromPeg]) ? fromState[move.fromPeg].indexOf(move.disk) + 1 : 0;
+  const toLevel = Array.isArray(toState[move.toPeg]) ? toState[move.toPeg].length + 1 : 0;
+
+  return {
+    disk: move.disk,
+    from: move.fromPeg,
+    to: move.toPeg,
+    diskLevel: fromLevel,
+    toLevel,
+  };
+}
+
+function hanoiHumanExpectedNextState() {
+  const move = hanoiMoveQueue[hanoiCurrentMove];
+  if (!move || !hanoiLiveState) return null;
+  return computeExpectedStateAfterMove(hanoiLiveState, move);
+}
+
+function hanoiHumanPushState(state) {
+  if (!Array.isArray(state)) return;
+  hanoiHumanStateHistory.push(cloneHanoiState(state));
+}
+
+function hanoiHumanLastLegalState() {
+  if (hanoiHumanStateHistory.length > 0) {
+    return cloneHanoiState(hanoiHumanStateHistory[hanoiHumanStateHistory.length - 1]);
+  }
+  return hanoiLiveState ? cloneHanoiState(hanoiLiveState) : null;
+}
+
+function hanoiGetHumanRecoverySourceState() {
+  return cloneHanoiState(hanoiHumanAssessment?.detectedState || hanoiState || hanoiLiveState || []);
+}
+
+function hanoiFormatRecoveryMove(move) {
+  if (!move) return null;
+  return `Disk ${move.disk} ${uiPegLabel(move.from)} -> ${uiPegLabel(move.to)}`;
+}
+
+function hanoiLogRecoverySuggestion(move) {
+  const label = hanoiFormatRecoveryMove(move);
+  if (!label) return;
+  appendLog(`; Human play recovery suggestion: ${label}`);
+  console.log(`[Human play recovery suggestion] ${label}`);
+}
+
 function updateHanoiVerificationPanel() {
   const panel = document.getElementById("hanoiVerificationPanel");
   if (!panel) return;
 
   const title = document.getElementById("hanoiVerificationTitle");
   const body = document.getElementById("hanoiVerificationBody");
-  const redoBtn = document.getElementById("hanoiRedoMoveBtn");
-  const ignoreBtn = document.getElementById("hanoiIgnoreVerificationBtn");
+  const selfFixBtn = document.getElementById("hanoiVerificationSelfFixBtn");
+  const recoverBtn = document.getElementById("hanoiVerificationRecoverBtn");
 
   if (!hanoiVerificationPending) {
     panel.hidden = true;
-    if (redoBtn) redoBtn.disabled = true;
-    if (ignoreBtn) ignoreBtn.disabled = true;
+    if (selfFixBtn) selfFixBtn.disabled = true;
+    if (recoverBtn) recoverBtn.disabled = true;
     return;
   }
 
   const { move, expectedState, detectedState, reason } = hanoiVerificationPending;
   panel.hidden = false;
-  if (redoBtn) redoBtn.disabled = false;
-  if (ignoreBtn) ignoreBtn.disabled = false;
+  if (selfFixBtn) selfFixBtn.disabled = false;
+  if (recoverBtn) recoverBtn.disabled = false;
 
   if (title) title.textContent = reason === "cv-error" ? "CV check failed after action" : "CV mismatch after action";
   if (body) {
@@ -503,6 +679,14 @@ function hanoiIgnoreVerificationAndProceed() {
   hanoiQueueNextSubStep();
 }
 
+function hanoiManualFixChosen() {
+  if (!hanoiVerificationPending) return;
+
+  clearHanoiVerification();
+  appendLog("; Hanoi: user will fix the board manually, then re-check legality.");
+  updateHanoiUI();
+}
+
 function hanoiHasPendingWork() {
   return hanoiMoveQueue.length > 0 && hanoiCurrentMove < hanoiMoveQueue.length;
 }
@@ -527,14 +711,13 @@ function hanoiReset() {
  * Build the full move queue from a given state.
  * Returns error string if prerequisites are missing, null on success.
  */
-function hanoiBuild(state) {
+function hanoiBuild(state, targetPeg = getSelectedHanoiTargetPeg(state)) {
   const validity = validateHanoiState(state, hanoiExpectedDiskCount());
   if (!validity.ok) return validity.error;
 
   // Movement calibration now lives inside the Arduino firmware.
   // The browser only needs to validate the logical Hanoi state.
 
-  const targetPeg = inferHanoiTargetPeg(state);
   const rawMoves = hanoiSolve(state, targetPeg);
   if (rawMoves.length === 0) return "Nothing to solve — the puzzle is already complete or empty.";
 
@@ -797,6 +980,364 @@ async function syncWorkspaceAfterHanoiMove() {
   });
 }
 
+async function sendHanoiStartCommand(contextLabel) {
+  if (typeof sendRawGcode !== "function") return true;
+
+  appendLog(`; Hanoi: moving arm to start position for ${contextLabel}…`);
+  return await sendRawGcode(firmwareStartCommand(), contextLabel, {
+    expectOk: true,
+    waitForOkCount: Number(CONFIG.hanoi?.startOkCount ?? 2),
+    timeoutSeconds: Number(CONFIG.hanoi?.startTimeoutSeconds ?? 90)
+  });
+}
+
+async function sendHanoiHomeCommand(contextLabel) {
+  if (typeof sendRawGcode !== "function") return true;
+
+  appendLog(`; Hanoi: homing arm for ${contextLabel}…`);
+  const clearOk = await sendRawGcode("M999", `${contextLabel} — clear emergency stop`, {
+    expectOk: true,
+    timeoutSeconds: 10,
+  });
+  if (!clearOk) return false;
+
+  const homeOk = await sendRawGcode(CONFIG.system?.home || "G28", contextLabel, {
+    expectOk: true,
+    timeoutSeconds: Number(CONFIG.system?.homeTimeoutSeconds ?? 120),
+  });
+  if (!homeOk) return false;
+
+  appendLog("; Home acknowledged by firmware. Requesting position now…");
+  return await sendRawGcode(CONFIG.system?.getPosition || "M114", "Get Position after Home", {
+    expectOk: true,
+    waitForPosition: true,
+    timeoutSeconds: Number(CONFIG.system?.positionSyncTimeoutSeconds ?? 10)
+  });
+}
+
+function setHumanPlayResult(message, tone = "neutral") {
+  const el = document.getElementById("hanoiHumanResult");
+  if (!el) return;
+
+  el.classList.remove("is-neutral", "is-ok", "is-error");
+  el.classList.add(tone === "ok" ? "is-ok" : tone === "error" ? "is-error" : "is-neutral");
+  el.textContent = message;
+}
+
+function setHanoiWorkflowMode(mode) {
+  hanoiWorkflowMode = mode === "human-play" ? "human-play" : "solver";
+
+  if (hanoiWorkflowMode === "human-play") {
+    hanoiRunning = false;
+    hanoiPaused = false;
+    hanoiFullAuto = false;
+    pendingExecution = null;
+    clearPreviewPosition();
+    clearHanoiVerification();
+    hanoiMoveQueue = [];
+    hanoiCurrentMove = 0;
+    hanoiCurrentStep = 0;
+    hanoiLiveState = null;
+    hanoiHumanPlanReady = false;
+    hanoiHumanDecisionPending = false;
+    hanoiHumanStateHistory = [];
+    renderHanoiQueue();
+    setHumanPlayResult("Human play mode enabled. Initializing the predicted sequence…", "neutral");
+  } else {
+    hanoiHumanAssessment = null;
+    hanoiHumanBusy = false;
+    hanoiHumanPlanReady = false;
+    hanoiHumanDecisionPending = false;
+    hanoiHumanStateHistory = [];
+    setHumanPlayResult("Human play mode is off.", "neutral");
+  }
+
+  updateHanoiUI();
+}
+
+function hanoiHumanBoardIsPlayable(state) {
+  const validity = validateHanoiState(state, hanoiExpectedDiskCount());
+  return validity.ok && isLegalHanoiBoard(state);
+}
+
+async function checkHumanPlayBoard() {
+  if (hanoiHumanBusy) return;
+
+  if (hanoiWorkflowMode !== "human-play") {
+    setHanoiWorkflowMode("human-play");
+  }
+
+  hanoiHumanBusy = true;
+  hanoiHumanAssessment = null;
+  setHumanPlayResult("Checking the board from the camera…", "neutral");
+  updateHanoiUI();
+
+  try {
+    const detected = await detectStateFromCamera();
+    if (!detected) {
+      hanoiHumanAssessment = { ok: false, needsRecovery: false, detectedState: null, reason: "cv-error" };
+      hanoiHumanDecisionPending = false;
+      setHumanPlayResult(
+        "Error! I could not read the board. Fix the camera view or try again.",
+        "error"
+      );
+      appendLog("! Human play: camera read failed.");
+      return;
+    }
+
+    hanoiState = detected;
+    renderHanoiState(detected);
+    setManualInputsFromState(detected);
+
+    if (!hanoiHumanPlanReady) {
+      const err = hanoiBuild(detected, getSelectedHanoiTargetPeg(detected));
+      if (err) {
+        const referenceState = hanoiHumanLastLegalState() || cloneHanoiState(hanoiLiveState || detected);
+        const undoMove = inferSingleMoveBetweenStates(detected, referenceState);
+        hanoiHumanAssessment = {
+          ok: false,
+          needsRecovery: true,
+          detectedState: detected,
+          referenceState,
+          recoveryMove: undoMove,
+          reason: "invalid-board"
+        };
+        hanoiHumanDecisionPending = true;
+        hanoiLogRecoverySuggestion(undoMove);
+        setHumanPlayResult(`Error! ${err}`, "error");
+        appendLog(`! Human play: ${err}`);
+        updateHanoiUI();
+        return;
+      }
+
+      hanoiHumanPlanReady = true;
+      hanoiHumanDecisionPending = false;
+      hanoiHumanAssessment = { ok: true, needsRecovery: false, detectedState: detected, reason: "initialized" };
+      hanoiLiveState = cloneHanoiState(detected);
+      hanoiHumanStateHistory = [cloneHanoiState(detected)];
+      renderHanoiQueue();
+      setHumanPlayResult("Predicted sequence loaded. Arm stays at home. Make the next move, then check Tower of Hanoi rules again.", "ok");
+      appendLog("; Human play: predicted sequence ready. Arm stays at home.");
+      updateHanoiUI();
+      return;
+    }
+
+    const expectedState = hanoiHumanExpectedNextState();
+    if (!expectedState) {
+      setHumanPlayResult("Error! I cannot compute the next expected state. Reinitialize the human mode.", "error");
+      appendLog("! Human play: missing expected next state.");
+      return;
+    }
+
+    if (hanoiHumanAssessment?.reason === "self-fix" && sameHanoiState(detected, hanoiHumanAssessment.referenceState)) {
+      hanoiHumanAssessment = {
+        ok: true,
+        needsRecovery: false,
+        detectedState: detected,
+        expectedState,
+        referenceState: cloneHanoiState(detected),
+        reason: "self-fix-complete",
+      };
+      hanoiHumanDecisionPending = false;
+      setHumanPlayResult("ok continue", "ok");
+      appendLog("; Human play: ok continue.");
+      appendLog("; Human play: la correction manuelle a restauré l'état précédent.");
+      hanoiLiveState = cloneHanoiState(detected);
+      hanoiHumanStateHistory.push(cloneHanoiState(detected));
+      renderHanoiQueue();
+      updateHanoiUI();
+      return;
+    }
+
+    if (hanoiHumanAssessment?.needsRecovery && sameHanoiState(detected, hanoiHumanAssessment.referenceState)) {
+      hanoiHumanAssessment = {
+        ok: true,
+        needsRecovery: false,
+        detectedState: detected,
+        expectedState,
+        referenceState: cloneHanoiState(detected),
+        reason: "recovered",
+      };
+      hanoiHumanDecisionPending = false;
+      setHumanPlayResult("ok continue", "ok");
+      appendLog("; Human play: ok continue.");
+      appendLog("; Human play: le plateau a été restauré à l'état précédent.");
+      hanoiLiveState = cloneHanoiState(detected);
+      hanoiHumanStateHistory.push(cloneHanoiState(detected));
+      renderHanoiQueue();
+      updateHanoiUI();
+      return;
+    }
+
+    if (sameHanoiState(detected, expectedState)) {
+      hanoiHumanAssessment = { ok: true, needsRecovery: false, detectedState: detected, expectedState, reason: "match" };
+      hanoiHumanDecisionPending = false;
+      setHumanPlayResult("ok continue", "ok");
+      appendLog("; Human play: ok continue.");
+      hanoiLiveState = cloneHanoiState(detected);
+      hanoiHumanStateHistory.push(cloneHanoiState(detected));
+      hanoiCurrentMove++;
+      hanoiCurrentStep = 0;
+      renderHanoiQueue();
+      updateHanoiUI();
+      return;
+    }
+
+    const referenceState = hanoiHumanLastLegalState() || cloneHanoiState(hanoiLiveState || detected);
+    hanoiHumanAssessment = {
+      ok: false,
+      needsRecovery: true,
+      detectedState: detected,
+      expectedState,
+      referenceState,
+      move: hanoiMoveQueue[hanoiCurrentMove] || null,
+      recoveryMove: inferSingleMoveBetweenStates(detected, referenceState),
+      reason: "mismatch"
+    };
+    hanoiHumanDecisionPending = true;
+    hanoiLogRecoverySuggestion(hanoiHumanAssessment.recoveryMove);
+    setHumanPlayResult(
+      "Error! That move does not match the solver prediction. Do you want to fix it yourself or should I fix it for you?",
+      "error"
+    );
+    appendLog("! Human play: move mismatch detected. Choose self-fix or arm-fix.");
+  } finally {
+    hanoiHumanBusy = false;
+    updateHanoiUI();
+  }
+}
+
+function hanoiSelfFixChosen() {
+  if (!hanoiHumanAssessment?.needsRecovery) return;
+  hanoiHumanDecisionPending = false;
+  hanoiHumanAssessment = {
+    ...hanoiHumanAssessment,
+    needsRecovery: false,
+    reason: "self-fix",
+  };
+  setHumanPlayResult("Fix the board yourself, then press Check if legal move again.", "neutral");
+  appendLog("; Human play: user chose to fix the board manually.");
+  updateHanoiUI();
+}
+
+function recoverHumanPlayBoard() {
+  if (!hanoiHumanAssessment?.needsRecovery) return;
+
+  const detected = hanoiGetHumanRecoverySourceState();
+  const referenceState = hanoiHumanAssessment?.referenceState;
+  if (!detected || !referenceState) {
+    setHumanPlayResult(
+      "Error! I could not prepare the recovery preview. Fix it yourself, then check Tower of Hanoi rules again.",
+      "error"
+    );
+    appendLog("! Human play: recovery preview could not be prepared.");
+    return;
+  }
+
+  const undoMove = hanoiHumanAssessment?.recoveryMove || inferSingleMoveBetweenStates(detected, referenceState);
+  if (!undoMove) {
+    setHumanPlayResult(
+      "Error! I can only fix a single wrong move automatically. Fix it yourself, then check Tower of Hanoi rules again.",
+      "error"
+    );
+    appendLog("! Human play: cannot infer a single undo move from the detected state.");
+    return;
+  }
+
+  const result = buildMoveGcode(undoMove.disk, undoMove.from, undoMove.to, undoMove.diskLevel, undoMove.toLevel);
+  if (result.error) {
+    setHumanPlayResult(`Error! ${result.error}`, "error");
+    appendLog(`! Human play recovery error: ${result.error}`);
+    return;
+  }
+
+  const fromXY = typeof ikGetPegXY === "function" ? ikGetPegXY(undoMove.from) : null;
+  const toXY = typeof ikGetPegXY === "function" ? ikGetPegXY(undoMove.to) : null;
+  if (fromXY) setPreviewPosition(fromXY.x, fromXY.y);
+  else if (toXY) setPreviewPosition(toXY.x, toXY.y);
+
+  pendingExecution = async () => {
+    hanoiHumanBusy = true;
+    hanoiHumanDecisionPending = false;
+    setHumanPlayResult("Undoing the move that caused the error…", "neutral");
+    updateHanoiUI();
+
+    try {
+      appendLog(`; Human play: undoing Disk ${undoMove.disk} ${uiPegLabel(undoMove.from)} → ${uiPegLabel(undoMove.to)}.`);
+
+      const homedBefore = await sendHanoiHomeCommand("Human play recovery before START");
+      if (!homedBefore) {
+        setHumanPlayResult("Error! The arm could not move to the home position before fixing the error.", "error");
+        appendLog("! Human play: homing failed before recovery.");
+        return;
+      }
+
+      const started = await sendHanoiStartCommand("Human play recovery");
+      if (!started) {
+        setHumanPlayResult("Error! The arm could not move to the start position before fixing the error.", "error");
+        appendLog("! Human play: start pose initialization failed before recovery.");
+        return;
+      }
+
+      for (const step of result.steps) {
+        const ok = await sendRawGcode(step.gcode, `Human play ${step.label}`, {
+          expectOk: true,
+          waitForOkCount: step.label === "Initialize arm from home" ? Number(CONFIG.hanoi?.startOkCount ?? 2) : 0,
+          timeoutSeconds: step.label === "Initialize arm from home"
+            ? Number(CONFIG.hanoi?.startTimeoutSeconds ?? 90)
+            : Number(CONFIG.hanoi?.substepTimeoutSeconds ?? 45),
+        });
+
+        if (!ok) {
+          setHumanPlayResult("Error! The arm stopped while undoing the move.", "error");
+          appendLog("! Human play: recovery stopped because a firmware step was not acknowledged.");
+          return;
+        }
+      }
+
+      const synced = await syncWorkspaceAfterHanoiMove();
+      if (!synced) {
+        setHumanPlayResult("Error! The arm could not finish syncing after undoing the move.", "error");
+        appendLog("! Human play: recovery stopped because the firmware did not confirm the move completion.");
+        return;
+      }
+
+      const homedAfter = await sendHanoiHomeCommand("Human play recovery after move");
+      if (!homedAfter) {
+        setHumanPlayResult("Error! The arm could not return to the home position after fixing the error.", "error");
+        appendLog("! Human play: homing failed after recovery.");
+        return;
+      }
+
+      hanoiState = cloneHanoiState(referenceState);
+      hanoiLiveState = cloneHanoiState(referenceState);
+      renderHanoiState(referenceState);
+      setManualInputsFromState(referenceState);
+      hanoiHumanAssessment = {
+        ok: true,
+        needsRecovery: false,
+        detectedState: referenceState,
+        referenceState: cloneHanoiState(referenceState),
+        reason: "recovered"
+      };
+      hanoiHumanPlanReady = true;
+      hanoiHumanDecisionPending = false;
+      hanoiHumanStateHistory.push(cloneHanoiState(referenceState));
+      setHumanPlayResult("ok continue", "ok");
+      appendLog("; Human play: ok continue.");
+      appendLog("; Human play: recovery complete. The previous legal state has been restored.");
+    } finally {
+      hanoiHumanBusy = false;
+      updateHanoiUI();
+    }
+  };
+
+  updatePreviewBanner(`Recover error — Disk ${undoMove.disk} ${uiPegLabel(undoMove.from)} → ${uiPegLabel(undoMove.to)}`);
+  setHumanPlayResult("Recovery preview ready. Confirm to execute.", "neutral");
+  appendLog(`; Human play: recovery preview ready for Disk ${undoMove.disk} ${uiPegLabel(undoMove.from)} → ${uiPegLabel(undoMove.to)}.`);
+  updateHanoiUI();
+}
+
 // ─────────────────────────────────────────────
 //  UI — RENDER QUEUE
 // ─────────────────────────────────────────────
@@ -882,20 +1423,39 @@ function updateHanoiUI() {
   const isDone    = hanoiCurrentMove >= hanoiMoveQueue.length && hasMoves;
   const isPending = typeof pendingExecution === "function";
   const needsVerificationDecision = Boolean(hanoiVerificationPending);
+  const humanModeActive = hanoiWorkflowMode === "human-play";
 
   const btn = id => document.getElementById(id);
-  if (btn("hanoiRunBtn"))    btn("hanoiRunBtn").disabled    = !hasMoves || isDone || needsVerificationDecision;
-  if (btn("hanoiApproveBtn")) btn("hanoiApproveBtn").disabled = !hasMoves || isDone || needsVerificationDecision;
-  if (btn("hanoiResumeBtn")) btn("hanoiResumeBtn").disabled = !hanoiPaused || needsVerificationDecision;
-  if (btn("hanoiStopBtn"))   btn("hanoiStopBtn").disabled   = (!hanoiRunning && !isPending && !hanoiPaused) || needsVerificationDecision;
+  if (btn("hanoiRunBtn"))    btn("hanoiRunBtn").disabled    = humanModeActive || !hasMoves || isDone || needsVerificationDecision;
+  if (btn("hanoiApproveBtn")) btn("hanoiApproveBtn").disabled = humanModeActive || !hasMoves || isDone || needsVerificationDecision;
+  if (btn("hanoiResumeBtn")) btn("hanoiResumeBtn").disabled = humanModeActive || !hanoiPaused || needsVerificationDecision;
+  if (btn("hanoiStopBtn"))   btn("hanoiStopBtn").disabled   = humanModeActive || ((!hanoiRunning && !isPending && !hanoiPaused) || needsVerificationDecision);
   if (btn("hanoiResetBtn"))  btn("hanoiResetBtn").disabled  = false;
-  if (btn("hanoiSolveBtn"))  btn("hanoiSolveBtn").disabled  = hanoiRunning || needsVerificationDecision;
-  if (btn("hanoiDetectBtn")) btn("hanoiDetectBtn").disabled = hanoiRunning || needsVerificationDecision;
-  if (btn("hanoiDetectSolveBtn")) btn("hanoiDetectSolveBtn").disabled = hanoiRunning || needsVerificationDecision;
+  if (btn("hanoiSolveBtn"))  btn("hanoiSolveBtn").disabled  = hanoiRunning || needsVerificationDecision || humanModeActive;
+  if (btn("hanoiDetectBtn")) btn("hanoiDetectBtn").disabled = hanoiRunning || needsVerificationDecision || humanModeActive;
+  if (btn("hanoiDetectSolveBtn")) btn("hanoiDetectSolveBtn").disabled = hanoiRunning || needsVerificationDecision || humanModeActive;
+  if (btn("hanoiHumanModeBtn")) btn("hanoiHumanModeBtn").textContent = humanModeActive ? "Exit human play mode" : "Enter human play mode";
+  if (btn("hanoiHumanCheckBtn")) btn("hanoiHumanCheckBtn").disabled = !humanModeActive || hanoiHumanBusy;
+  if (btn("hanoiHumanSelfFixBtn")) {
+    const showDecision = humanModeActive && hanoiHumanDecisionPending;
+    btn("hanoiHumanSelfFixBtn").hidden = !showDecision;
+    btn("hanoiHumanSelfFixBtn").disabled = !showDecision || hanoiHumanBusy;
+  }
+  if (btn("hanoiHumanRecoverBtn")) {
+    const needsRecovery = humanModeActive && hanoiHumanDecisionPending;
+    btn("hanoiHumanRecoverBtn").hidden = !needsRecovery;
+    btn("hanoiHumanRecoverBtn").disabled = !needsRecovery || hanoiHumanBusy;
+  }
 
   const statusEl = document.getElementById("hanoiStatus");
   if (statusEl) {
-    if (needsVerificationDecision) statusEl.textContent = "CV check needs decision";
+    if (humanModeActive) {
+      if (hanoiHumanBusy) statusEl.textContent = "Human play mode — checking or recovering…";
+      else if (hanoiHumanDecisionPending) statusEl.textContent = "Human play mode — choose how to fix the error";
+      else if (hanoiHumanAssessment?.needsRecovery) statusEl.textContent = "Human play mode — error detected";
+      else if (hanoiHumanAssessment?.ok) statusEl.textContent = "Human play mode — playable";
+      else statusEl.textContent = "Human play mode";
+    } else if (needsVerificationDecision) statusEl.textContent = "CV check needs decision";
     else if (isDone)        statusEl.textContent = "✓ Complete";
     else if (hanoiFullAuto && hanoiRunning) statusEl.textContent = `Running successively — move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}…`;
     else if (isPending)     statusEl.textContent = `Awaiting confirm — move ${hanoiCurrentMove + 1}/${hanoiMoveQueue.length}`;
@@ -929,8 +1489,26 @@ function readManualState() {
 // ─────────────────────────────────────────────
 
 function setupHanoiSolver() {
+  document.getElementById("hanoiHumanModeBtn")?.addEventListener("click", () => {
+    if (hanoiWorkflowMode === "human-play") {
+      setHanoiWorkflowMode("solver");
+      appendLog("; Human play mode disabled.");
+    } else {
+      setHanoiWorkflowMode("human-play");
+      appendLog("; Human play mode enabled.");
+      checkHumanPlayBoard();
+    }
+  });
+
+  document.getElementById("hanoiVerificationSelfFixBtn")?.addEventListener("click", hanoiManualFixChosen);
+  document.getElementById("hanoiVerificationRecoverBtn")?.addEventListener("click", hanoiRedoPreviousMove);
+  document.getElementById("hanoiHumanCheckBtn")?.addEventListener("click", checkHumanPlayBoard);
+  document.getElementById("hanoiHumanSelfFixBtn")?.addEventListener("click", hanoiSelfFixChosen);
+  document.getElementById("hanoiHumanRecoverBtn")?.addEventListener("click", recoverHumanPlayBoard);
+
   // Detect via camera
   document.getElementById("hanoiDetectBtn")?.addEventListener("click", async () => {
+    setHanoiWorkflowMode("solver");
     appendLog("; Hanoi: capturing snapshot from ESP32-CAM…");
     const btn = document.getElementById("hanoiDetectBtn");
     if (btn) { btn.disabled = true; btn.textContent = "Detecting…"; }
@@ -952,6 +1530,7 @@ function setupHanoiSolver() {
   // It captures one frame, annotates it, fills the peg state, and builds the G-code queue.
   // It does not move the robot until the user confirms or starts automatic execution.
   document.getElementById("hanoiDetectSolveBtn")?.addEventListener("click", async () => {
+    setHanoiWorkflowMode("solver");
     const btn = document.getElementById("hanoiDetectSolveBtn");
     appendLog("; Hanoi: capture + solve requested…");
     if (btn) { btn.disabled = true; btn.textContent = "Capturing…"; }
@@ -963,7 +1542,7 @@ function setupHanoiSolver() {
       renderHanoiState(state);
       setManualInputsFromState(state);
 
-      const err = hanoiBuild(state);
+      const err = hanoiBuild(state, getSelectedHanoiTargetPeg(state));
       if (err) { appendLog(`! Hanoi: ${err}`); return; }
 
       appendLog(`; Hanoi: ${hanoiMoveQueue.length} moves computed from camera state. Confirm the first step or run automatically.`);
@@ -999,11 +1578,12 @@ function setupHanoiSolver() {
 
   // Solve button — compute then start confirm-per-step sequence
   document.getElementById("hanoiSolveBtn")?.addEventListener("click", () => {
+    setHanoiWorkflowMode("solver");
     const state = readManualState();
     const isEmpty = state.every(p => p.length === 0);
     if (isEmpty) { appendLog("! Hanoi: enter disk state first (use Detect or fill manually)."); return; }
     hanoiState = state;
-    const err = hanoiBuild(state);
+    const err = hanoiBuild(state, getSelectedHanoiTargetPeg(state));
     if (err) { appendLog(`! Hanoi: ${err}`); return; }
     appendLog(`; Hanoi: ${hanoiMoveQueue.length} moves computed. Confirm each step in the preview banner.`);
     renderHanoiState(state);
@@ -1027,14 +1607,18 @@ function setupHanoiSolver() {
   // Stop — abort current sequence (pending confirm or auto-run)
   document.getElementById("hanoiStopBtn")?.addEventListener("click", hanoiStop);
 
-  document.getElementById("hanoiRedoMoveBtn")?.addEventListener("click", hanoiRedoPreviousMove);
-  document.getElementById("hanoiIgnoreVerificationBtn")?.addEventListener("click", hanoiIgnoreVerificationAndProceed);
   updateHanoiVerificationPanel();
 
   // Reset
   document.getElementById("hanoiResetBtn")?.addEventListener("click", () => {
     if (hanoiMoveQueue.length > 0 && !confirm("Reset the Hanoi solver? This clears the move queue.")) return;
     hanoiReset();
+    hanoiHumanAssessment = null;
+    if (hanoiWorkflowMode === "human-play") {
+      setHumanPlayResult("Human play mode enabled. Press Check Tower of Hanoi rules after each move.", "neutral");
+    } else {
+      setHumanPlayResult("Human play mode is off.", "neutral");
+    }
     appendLog("; Hanoi: reset.");
     renderHanoiState(null);
     for (let p = 0; p < 3; p++) {
@@ -1043,6 +1627,7 @@ function setupHanoiSolver() {
     }
   });
 
+  setHumanPlayResult("Human play mode is off.", "neutral");
   updateHanoiUI();
   renderHanoiQueue();
 }

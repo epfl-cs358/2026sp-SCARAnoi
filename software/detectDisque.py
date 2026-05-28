@@ -122,11 +122,11 @@ HSV_RANGES = {
 }
 
 DISK_ID = {
-    "light_green": 1,
-    "yellow": 2,
-    "red": 3,
-    "dark_blue": 4,
-    "turquoise": 5,
+    "yellow": 1,
+    "red": 2,
+    "dark_blue": 3,
+    "turquoise": 4,
+    "light_green": 5
 }
 
 ID_TO_COLOR = {v: k for k, v in DISK_ID.items()}
